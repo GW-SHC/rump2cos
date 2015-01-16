@@ -1,5 +1,5 @@
-**Info on OS
+**Info on OS**
 
-***System Calls
+***System Calls***
 - http://pages.cs.wisc.edu/~remzi/OSFEP/intro-syscall.pdf
  - Info related to syscalls. 

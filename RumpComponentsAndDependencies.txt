@@ -1,0 +1,84 @@
+Component                   Dependencies
+
+Rump Devices
+-lrumpdev_audio              -lrumpvfs -lrumpdev
+-lrumpdev_bpf                -lrumpnet_net -lrumpnet
+-lrumpdev_disk               -lrumpvfs -lrumpdev
+-lrumpdev_dm                 -lrumpvfs -lrumpdev -lrumpdev_disk
+-lrumpdev_drvctl             -lrumpvfs -lrumpdev
+-lrumpdev_fss                -lrumpdev_disk -lrumpvfs -lrumpdev
+-lrumpdev_md                 -lrumpvfs -lrumpdev_disk -lrumpdev
+-lrumpdev_netsmb             -lrumpvfs -lrumpdev -lrumpkern_crypto -lrumpnet
+-lrumpdev_opencrypto         -lrumpnet -lrumpvfs -lrumpkern_crypto -lrumpkern_z -lrumpdev
+-lrumpdev_pad                -lrumpvfs -lrumpdev_audio -lrumpdev
+-lrumpdev_pud                -lrumpvfs -lrumpdev_putter
+-lrumpdev_putter             NONE :)
+-lrumpdev_raidframe          -lrumpvfs -lrumpdev -lrumpdev_disk
+-lrumpdev_rnd                -lrumpvfs -lrumpdev
+-lrumpdev_scsipi             -lrumpvfs -lrumpdev_disk -lrumpdev
+-lrumpdev_sysmon             -lrumpvfs -lrumpdev
+-lrumpdev_umass              NONE :) 
+-lrumpdev_vnd                -lrumpvfs -lrumpdev_disk -lrumpdev 
+-lrumpdev_wscons             -lrumpvfs -lrumpdev
+
+Rump File System
+-lrumpfs_cd9660              -lrumpvfs
+-lrumpfs_efs                 -lrumpvfs
+-lrumpfs_ext2fs              -lrumpdev -lrumpdev_disk -lrumpvfs -lrumpfs_ffs
+-lrumpfs_fdesc               -lrumpvfs
+-lrumpfs_ffs                 -lrumpdev -lrumpdev_disk -lrumpvfs
+-lrumpfs_hfs                 -lrumpdev -lrumpdev_disk -lrumpvfs
+-lrumpfs_kernfs              -lrumpvfs
+-lrumpfs_lfs                 -lrumpvfs
+-lrumpfs_mfs                 -lrumpdev -lrumpdev_disk -lrumpvfs -lrumpfs_ffs
+-lrumpfs_msdos               -lrumpdev -lrumpdev_disk -lrumpvfs
+-lrumpfs_nfsserver           -lrumpnet_net -lrumpnet -lrumpfs_nfs -lrumpvfs
+-lrumpfs_nfs                 -lrumpnet_net -lrumpnet -lrumpvfs
+-lrumpfs_nilfs               -lrumpdev -lrumpdev_disk -lrumpvfs
+-lrumpfs_ntfs                -lrumpvfs
+-lrumpfs_null                -lrumpvfs -lrumpvfs_layerfs
+-lrumpfs_ptyfs               -lrumpkern_tty -lrumpvfs
+-lrumpfs_smbfs               -lrumpdev -lrumpkern_crypto -lrumpnet -lrumpvfs -lrumpdev_netsmb            
+-lrumpfs_syspuffs            -lrumpdev_putter -lrumpvfs
+-lrumpfs_sysvbfs             -lrumpvfs
+-lrumpfs_tmpfs               -lrumpvfs
+-lrumpfs_udf                 -lrumpdev -lrumpdev_disk -lrumpvfs
+-lrumpfs_umap                -lrumpvfs -lrumpvfs_layerfs
+-lrumpfs_union               -lrumpvfs
+-lrumpfs_v7fs                -lrumpdev -lrumpdev_disk -lrumpvfs
+
+Rump Kernel
+-lrumpkern_crypto            NONE :)
+-lrumpkern_sljit             NONE :)
+-lrumpkern_sys_linux         -lrumpnet_net -lrumpnet -lrumpvfs
+-lrumpkern_sysproxy          NONE :)
+-lrumpkern_tty               -lrumpvfs
+-lrumpkern_z                 NONE :)
+
+Rump Networks
+-lrumpnet_agr                -lrumpnet -lrumpnet_net
+-lrumpnet_bpfjit             -lrumpnet_net -lrumpnet -lrumpdev_bpf -lrumpkern_sljit         
+-lrumpnet_bridge             -lrumpnet_net -lrumpnet
+-lrumpnet_config             -lrumpnet -lrumpnet_net
+-lrumpnet_local              -lrumpvfs -lrumpnet
+-lrumpnet_net80211           -lrumpnet -lrumpnet_net
+-lrumpnet_netbt              -lrumpvfs -lrumpdev -lrumpnet
+-lrumpnet_netinet6           -lrumpnet -lrumpnet_net          
+-lrumpnet_netinet            -lrumpnet -lrumpnet_net
+-lrumpnet_netmpls            -lrumpnet -lrumpnet_net
+-lrumpnet_net                -lrumpnet
+-lrumpnet_npf                -lrumpnet_net -lrumpnet -lrumpdev_bpf
+-lrumpnet_shmif              -lrumpnet -lrumpnet_net
+-lrumpnet_sockin             -lrumpnet
+-lrumpnet_virtif             -lrumpnet -lrumpnet_net
+
+Rump virtual file system
+-lrumpvfs_aio                -lrumpvfs
+-lrumpvfs_fifofs             -lrumpvfs -lrumpnet -lrumpnet_local
+-lrumpvfs_layerfs            -lrumpvfs
+
+
+
+
+
+

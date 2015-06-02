@@ -1,0 +1,3 @@
+Where exactly are drivers stored on the system?
+
+What is the rump kernel context?

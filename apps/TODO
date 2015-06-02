@@ -1,0 +1,3 @@
+* Make a bash script that opens gdb and connects to the default port:1234
+* separate the build process from the execute process.
+  * The make command should not also execute the file...But I need to learn bash first.

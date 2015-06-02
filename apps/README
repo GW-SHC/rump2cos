@@ -1,0 +1,8 @@
+To add your own makefile to your own application, simply write a makefile with the top of your
+applications direcory and add:
+
+include ../makefile.comp
+
+APP = <app name>
+
+You can then call make or make debug within this dirctory to quickly compile into a debug mode or run the ap

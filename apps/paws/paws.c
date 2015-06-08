@@ -16,7 +16,7 @@ main()
   if (rv)
     printf("rump_init failed\n");
 
-  rv = rump_pub_etfs_register("/dev/paws", "paws", RUMP_ETFS_BLK);
+  rv = rump_pub_etfs_register("/paws", "paws", RUMP_ETFS_BLK);
 
   if (rv)
     printf("rump_pub_etfs_register failed\n");
@@ -28,6 +28,14 @@ main()
   {
     sleep(1);
     printf("Current directory /dev/%s\n", dp->d_name);
+  }
+
+
+  dip = opendir(".");
+  while((dp = readdir(dip)) != NULL)
+  {
+    sleep(1);
+    printf("Current directory %s\n", dp->d_name);
   }
 
 	return 0;

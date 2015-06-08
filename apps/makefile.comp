@@ -1,6 +1,6 @@
 # Main make file. All others will simply change the variables within this one
 
-CFLAGS = -g3 -o
+CFLAGS = -g3 -c -o
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
 COMPILE = $(APPTOOLS)/rumprun-bmk-cc
 BAKE = $(APPTOOLS)/rumpbake

@@ -1,7 +1,6 @@
 #include <rump/rump_syscalls.h>
 #include <rump/rump.h>
 
-#include <stdio.h>
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -9,7 +8,7 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include <rump_vfs_private.h>
+//#include <rump_vfs_private.h>
 
 int
 main()
@@ -44,18 +43,18 @@ main()
   //if(rv)
   //  printf("rump_vfs_makeonedevnode failed\n");
 
-  int fd = open("/paws", O_RDWR);
-  assert(fd != -1);
-
   char reader[524288];
   char writer[] = "hello hobbes";
-  rv = write(fd, &writer, strlen(writer));
+  char writer2[] = " back for more";
+
+  int fd = open("/paws", O_RDWR);
+  assert(fd != -1);
+  rv = write(fd, writer, strlen(writer));
   assert(rv > 0);
-  close(fd);
-
-
-  fd = open("/paws", O_RDWR);
-  rv = read(fd, &reader, strlen(writer)+strlen(writer));
+  rv = write(fd, writer2, strlen(writer2));
+  assert(rv > 0);
+  lseek(fd, 0, SEEK_SET);
+  rv = read(fd, reader, strlen(writer)+strlen(writer2));
   assert(rv > 0);
   close(fd);
 

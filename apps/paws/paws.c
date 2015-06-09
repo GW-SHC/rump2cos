@@ -4,7 +4,10 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include <rump_vfs_private.h>
 
@@ -36,21 +39,37 @@ main()
    * device... I no longer care and will simply put the etfsregistered device in /paws while keeping the
    * makeonedevnode device within /dev/paws. I will then simply be sure to open just /dev */
 
-  rump_vfs_makeonedevnode(8192, "/dev/paws", 2, 2); // The 8192 is device type
+  //rv = rump_vfs_makeonedevnode(8192, "/dev/paws", 2, 2); // The 8192 is device type
   // The 2's are Major and Minor nums respectivly
+  //if(rv)
+  //  printf("rump_vfs_makeonedevnode failed\n");
 
+  int fd = open("/paws", O_RDWR);
+  assert(fd != -1);
 
-  rv = open("paws", 2); // the flag does not really matter,
-  //the access at rumpuser_open does not check for flags
-  printf("File descriptor is: %d\n", rv);
+  char reader[524288];
+  char writer[] = "hello hobbes";
+  rv = write(fd, writer, strlen(writer));
+  assert(rv > 0);
+  rv = read(fd, reader, strlen(writer)+strlen(writer));
+  assert(rv > 0);
 
-  DIR *dip = opendir("/dev");
+  printf("%s\n", reader);
+
+  //printdirs("/dev");
+  //printdirs("/tmp");
+
+  return 0;
+}
+
+void
+printdirs(char dir[])
+{
+  DIR *dip = opendir(dir);
   struct dirent *dp;
   while((dp = readdir(dip)) != NULL)
   {
     sleep(1);
-    printf("Current directory /dev/%s\n", dp->d_name);
+    printf("Current directory %s/%s\n", dir, dp->d_name);
   }
-
-  return 0;
 }

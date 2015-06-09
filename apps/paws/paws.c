@@ -49,10 +49,15 @@ main()
 
   char reader[524288];
   char writer[] = "hello hobbes";
-  rv = write(fd, writer, strlen(writer));
+  rv = write(fd, &writer, strlen(writer));
   assert(rv > 0);
-  rv = read(fd, reader, strlen(writer)+strlen(writer));
+  close(fd);
+
+
+  fd = open("/paws", O_RDWR);
+  rv = read(fd, &reader, strlen(writer)+strlen(writer));
   assert(rv > 0);
+  close(fd);
 
   printf("%s\n", reader);
 

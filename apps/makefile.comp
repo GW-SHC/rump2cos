@@ -1,13 +1,17 @@
 # Main make file. All others will simply change the variables within this one
 
-CFLAGS = -g3 -o
+CFLAGS = -g3 -c
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
 COMPILE = $(APPTOOLS)/rumprun-bmk-cc
 BAKE = $(APPTOOLS)/rumpbake
 RUN = $(APPTOOLS)/rumprun
-DEBUG = $(shell pwd)/debugit
 
+SRC =
 APP =
+
+ifndef (SRC)
+SRC = $(APP).c
+endif
 
 ifndef (APP)
 APP = app
@@ -20,7 +24,7 @@ $(APP).bin : $(APP).o
 	$(BAKE) hw_generic $(APP).bin $(APP).o
 
 $(APP).o:
-	$(COMPILE) $(CFLAGS) $(APP).o $(APP).c
+	$(COMPILE) $(CFLAGS) $(SRC)
 
 debug : $(APP).bin
-	$(RUN)  qemu -ip -D 1234 $(APP).bin
+	$(RUN)  qemu -ip -D 1233 $(APP).bin&

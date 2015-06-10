@@ -20,7 +20,7 @@ main()
   if (rv)
     printf("rump_init failed\n");
 
-  rv = rump_pub_etfs_register("/paws", "paws", RUMP_ETFS_BLK);
+  rv = rump_pub_etfs_register("/dev/paws", "paws", RUMP_ETFS_BLK);
 
   if (rv)
     printf("rump_pub_etfs_register failed\n");
@@ -45,9 +45,9 @@ main()
 
   char reader[524288];
   char writer[] = "hello hobbes";
-  char writer2[] = " back for more";
+  char writer2[] = " back for more\n";
 
-  int fd = open("/paws", O_RDWR);
+  int fd = open("/dev/paws", O_RDWR);
   assert(fd != -1);
   rv = write(fd, writer, strlen(writer));
   assert(rv > 0);
@@ -57,10 +57,11 @@ main()
   rv = read(fd, reader, strlen(writer)+strlen(writer2));
   assert(rv > 0);
   close(fd);
-
   printf("%s\n", reader);
-
-  //printdirs("/dev");
+  if(mkdir("/mnt", 0) == 0){
+    printf("directory /mnt created\n");
+  }
+  printdirs("/");
   //printdirs("/tmp");
 
   return 0;

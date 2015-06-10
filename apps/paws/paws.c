@@ -1,12 +1,15 @@
 #include <rump/rump_syscalls.h>
 #include <rump/rump.h>
 
+#include <stdio.h>
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <assert.h>
+
+#include "paws.h"
 
 //#include <rump_vfs_private.h>
 

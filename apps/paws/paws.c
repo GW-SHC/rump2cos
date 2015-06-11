@@ -1,6 +1,7 @@
 #include <rump/rump_syscalls.h>
 #include <rump/rump.h>
 
+#include <string.h>
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/types.h>
@@ -12,6 +13,20 @@
 #include "paws.h"
 
 //#include <rump_vfs_private.h>
+
+
+void
+printdirs(char dir[])
+{
+  DIR *dip = opendir(dir);
+  struct dirent *dp;
+  while((dp = readdir(dip)) != NULL)
+  {
+    sleep(1);
+    printf("Current directory %s/%s\n", dir, dp->d_name);
+  }
+}
+
 
 int
 main()
@@ -60,24 +75,16 @@ main()
   rv = read(fd, reader, strlen(writer)+strlen(writer2));
   assert(rv > 0);
   close(fd);
+
   printf("%s\n", reader);
+
+
   if(mkdir("/mnt", 0) == 0){
     printf("directory /mnt created\n");
   }
+
+
   printdirs("/");
-  //printdirs("/tmp");
 
   return 0;
-}
-
-void
-printdirs(char dir[])
-{
-  DIR *dip = opendir(dir);
-  struct dirent *dp;
-  while((dp = readdir(dip)) != NULL)
-  {
-    sleep(1);
-    printf("Current directory %s/%s\n", dir, dp->d_name);
-  }
 }

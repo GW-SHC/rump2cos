@@ -65,6 +65,8 @@ main()
   char writer[] = "hello hobbes";
   char writer2[] = " back for more\n";
 
+// Testing read and write
+
   int fd = open("/dev/paws", O_RDWR);
   assert(fd != -1);
   rv = write(fd, writer, strlen(writer));
@@ -78,13 +80,29 @@ main()
 
   printf("%s\n", reader);
 
+// Testing mkdir
 
   if(mkdir("/mnt", 0) == 0){
     printf("directory /mnt created\n");
   }
 
+// Testing mounting with ext2 mount type
 
-  printdirs("/");
+  struct ufs_args args;
+  struct stat sb;
+
+  fd = open("/dev/paws", O_RDWR);
+  assert(fd != -1);
+
+  rv = fstat(fd, &sb);
+  assert(rv == 0);
+
+  size_t size = (size_t)sb.st_size;
+  printf("Size of paws: %d\n", size);
+
+  args.fspec = "/dev/paws";
+  rv = mount_paws(MOUNT_EXT2FS, "/mnt", 0, &args, size);
+  assert(rv != -1);
 
   return 0;
 }

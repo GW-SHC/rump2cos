@@ -3,7 +3,7 @@
 int
 mount_paws(const char *type, const char *dir, int flags, void *data, size_t data_len)
 {
-  int rv;
+  int rv = 0;
   rv = mount(type, dir, flags, data, data_len);
   return rv;
 }

@@ -61,28 +61,29 @@ main()
   //if(rv)
   //  printf("rump_vfs_makeonedevnode failed\n");
 
-  char reader[524288];
+  char reader[50];
   char writer[] = "hello hobbes";
   char writer2[] = " back for more\n";
 
 // Testing read and write
 
-  int fd = open("/dev/paws", O_RDWR);
-  assert(fd != -1);
-  rv = write(fd, writer, strlen(writer));
-  assert(rv > 0);
-  rv = write(fd, writer2, strlen(writer2));
-  assert(rv > 0);
-  lseek(fd, 0, SEEK_SET);
-  rv = read(fd, reader, strlen(writer)+strlen(writer2));
-  assert(rv > 0);
-  close(fd);
-
-  printf("%s\n", reader);
+//  int fd = open("/dev/paws", O_RDWR);
+//  assert(fd != -1);
+//  printf("fd for /dev/paws: %d\n", fd);
+//  rv = write(fd, writer, strlen(writer));
+//  assert(rv > 0);
+//  rv = write(fd, writer2, strlen(writer2));
+//  assert(rv > 0);
+//  lseek(fd, 0, SEEK_SET);
+//  rv = read(fd, reader, strlen(writer)+strlen(writer2));
+//  assert(rv > 0);
+//  close(fd);
+//
+//  printf("%s\n", reader);
 
 // Testing mkdir
 
-  if(mkdir("/mnt", 0) == 0){
+  if(mkdir("/mnt", 777) == 0){
     printf("directory /mnt created\n");
   }
 
@@ -91,17 +92,18 @@ main()
   struct ufs_args args;
   struct stat sb;
 
-  fd = open("/dev/paws", O_RDWR);
+  int fd = open("/dev/paws", O_RDWR);
   assert(fd != -1);
 
   rv = fstat(fd, &sb);
   assert(rv == 0);
 
+  close(fd);
+
   size_t size = (size_t)sb.st_size;
-  printf("Size of paws: %d\n", size);
 
   args.fspec = "/dev/paws";
-  rv = mount_paws(MOUNT_EXT2FS, "/mnt", 0, &args, size);
+  rv = mount_paws(MOUNT_EXT2FS, "/mnt", 0, &args, sizeof(args));
   assert(rv != -1);
 
   return 0;

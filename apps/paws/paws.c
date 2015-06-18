@@ -71,11 +71,11 @@ testmount()
   // We can see those here and read the file...
   printf("\nfirst print:\n");
   printdirs("/mnt");
-  fd = open("/mnt/hobbes/hobbesfile", O_RDONLY);
-  assert(fd > -1);
-  rv = read(fd, readerfirst, sizeof(readerfirst)); // I forget how long the message is, so just read in a large amount
-  printf("%s\n", readerfirst);
-  sleep(5);
+//  fd = open("/mnt/hobbes/hobbesfile", O_RDONLY);
+//  assert(fd > -1);
+//  rv = read(fd, readerfirst, sizeof(readerfirst)); // I forget how long the message is, so just read in a large amount
+//  printf("%s\n", readerfirst);
+//  sleep(5);
 
   rv = unmount_paws("/mnt", MNT_FORCE);
   assert(rv != -1);

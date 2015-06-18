@@ -10,7 +10,7 @@ SRC =
 OBJ =
 APP =
 LIBS =
-DEP =
+DEPS =
 
 ifndef (APP)
 APP = app
@@ -20,13 +20,16 @@ ifndef (LIBS)
 LIBS = hw_generic
 endif
 
-all : $(APP).bin $(DEP)
+all : $(APP).bin
 	$(RUN) qemu -i $(APP).bin
 
 $(APP).bin : $(APP).o
 	$(BAKE) $(LIBS) $(APP).bin $(APP).o
 
-$(APP).o : $(SRC)
+$(APP).o : $(SRC) $(DEP)
+ifndef (DEPS)
+	$(MAKE) $(DEPS)
+endif
 	$(COMPILE) $(CFLAGS) -o $(APP).o $(SRC)
 
 debug : $(APP).bin

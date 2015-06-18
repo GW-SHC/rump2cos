@@ -1,0 +1,3 @@
+#!/bin/bash
+
+dd if=/dev/zero iflag=fullblock of=backing.img bs=512 count=1024

@@ -6,13 +6,11 @@ COMPILE = $(APPTOOLS)/rumprun-bmk-cc
 BAKE = $(APPTOOLS)/rumpbake
 RUN = $(APPTOOLS)/rumprun
 
-# MSG is a custom message that each application can configure to be displayed
-MSG =
-
 SRC =
 OBJ =
 APP =
 LIBS =
+DEP =
 
 ifndef (APP)
 APP = app
@@ -22,10 +20,7 @@ ifndef (LIBS)
 LIBS = hw_generic
 endif
 
-all : $(APP).bin
-	@echo -----
-	@echo $(MSG)
-	@echo -----
+all : $(APP).bin $(DEP)
 	$(RUN) qemu -i $(APP).bin
 
 $(APP).bin : $(APP).o

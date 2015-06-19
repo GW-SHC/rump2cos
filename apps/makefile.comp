@@ -6,19 +6,11 @@ COMPILE = $(APPTOOLS)/rumprun-bmk-cc
 BAKE = $(APPTOOLS)/rumpbake
 RUN = $(APPTOOLS)/rumprun
 
-SRC =
-OBJ =
-APP =
-LIBS =
-DEPS =
-
-ifndef (APP)
-APP = app
-endif
-
-ifndef (LIBS)
-LIBS = hw_generic
-endif
+SRC ?=
+OBJ ?=
+APP ?= app
+LIBS ?= hw_generic
+DEPS ?=
 
 all : $(APP).bin
 	$(RUN) qemu -i $(APP).bin
@@ -26,10 +18,7 @@ all : $(APP).bin
 $(APP).bin : $(APP).o
 	$(BAKE) $(LIBS) $(APP).bin $(APP).o
 
-$(APP).o : $(SRC) $(DEP)
-ifndef (DEPS)
-	$(MAKE) $(DEPS)
-endif
+$(APP).o : $(SRC)
 	$(COMPILE) $(CFLAGS) -o $(APP).o $(SRC)
 
 debug : $(APP).bin

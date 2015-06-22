@@ -3,8 +3,8 @@
 CFLAGS = -g3 -c
 LDFLAGS = -melf_i386 -i -o
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
-COMPILE = $(APPTOOLS)/rumprun-bmk-cc
-LINK = $(APPTOOLS)/rumprun-bmk-ld
+CC = $(APPTOOLS)/rumprun-bmk-cc
+LD = $(APPTOOLS)/rumprun-bmk-ld
 BAKE = $(APPTOOLS)/rumpbake
 RUN = $(APPTOOLS)/rumprun
 
@@ -21,10 +21,10 @@ $(APP).bin : $(APP)
 	$(BAKE) $(LIBS) $(APP).bin $(APP)
 
 $(APP) : *.o
-	$(LINK) $(LDFLAGS) $(APP) *.o
+	$(LD) $(LDFLAGS) $(APP) *.o
 
 *.o : $(SRC)
-	$(COMPILE) $(CFLAGS) $(SRC)
+	$(CC) $(CFLAGS) $(SRC)
 
 debug : $(APP).bin
-	$(RUN)  qemu -ip -D 1234 $(APP).bin&
+	$(RUN)  qemu -ip -D 1234 $(APP).bin &

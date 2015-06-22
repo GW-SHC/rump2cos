@@ -13,7 +13,7 @@ printdirs(char dir[])
 }
 
 static int
-testmkdir()
+testmkdir(void)
 {
         int rv = -1;
 
@@ -27,7 +27,7 @@ testmkdir()
 
 /* mounting with ext2 mount type */
 static int
-testmount()
+testmount(void)
 {
 
         struct ufs_args args;
@@ -120,7 +120,7 @@ testmount()
 }
 
 static int
-testreadwrite()
+testreadwrite(void)
 {
         char reader[50];
         char writer[] = "hello hobbes";
@@ -151,7 +151,7 @@ testreadwrite()
 }
 
 int
-paws_tests()
+paws_tests(void)
 {
         int rv;
 

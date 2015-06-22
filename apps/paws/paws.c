@@ -1,7 +1,7 @@
 #include "include/paws.h"
 
 int
-main()
+main(void)
 {
         int rv;
 

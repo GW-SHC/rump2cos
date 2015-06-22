@@ -3,10 +3,9 @@ APP = paws
 LIBS = paws
 DEPS = backing.o
 
-main : tools/backing.o
-	@$(MAKE) all
+main : tools/backing.o all
 
 tools/backing.o :
-	python ./tools/buildbacking.py
+	@ python ./tools/buildbacking.py
 
 include ../makefile.comp

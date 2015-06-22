@@ -26,5 +26,4 @@ unmount_paws(const char *dir, int flags);
 int
 paws_tests(void);
 
-#endif
-
+#endif /* PAWS_H */

@@ -1,8 +1,10 @@
 # Main make file. All others will simply change the variables within this one
 
-CFLAGS = -g3
+CFLAGS = -g3 -c
+LDFLAGS = -melf_i386 -i -o
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
 COMPILE = $(APPTOOLS)/rumprun-bmk-cc
+LINK = $(APPTOOLS)/rumprun-bmk-ld
 BAKE = $(APPTOOLS)/rumpbake
 RUN = $(APPTOOLS)/rumprun
 
@@ -15,11 +17,14 @@ DEPS ?=
 all : $(APP).bin
 	$(RUN) qemu -i $(APP).bin
 
-$(APP).bin : $(APP).o
-	$(BAKE) $(LIBS) $(APP).bin $(APP).o
+$(APP).bin : $(APP)
+	$(BAKE) $(LIBS) $(APP).bin $(APP)
 
-$(APP).o : $(SRC)
-	$(COMPILE) $(CFLAGS) -o $(APP).o $(SRC)
+$(APP) : *.o
+	$(LINK) $(LDFLAGS) $(APP) *.o
+
+*.o : $(SRC)
+	$(COMPILE) $(CFLAGS) $(SRC)
 
 debug : $(APP).bin
 	$(RUN)  qemu -ip -D 1234 $(APP).bin&

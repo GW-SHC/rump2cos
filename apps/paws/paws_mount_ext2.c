@@ -1,4 +1,4 @@
-#include "paws.h"
+#include "include/paws.h"
 
 int
 mount_paws(const char *type, const char *dir, int flags, void *data, size_t data_len)

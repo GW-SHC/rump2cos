@@ -1,6 +1,9 @@
 import subprocess
 import os
 
+# Start in the right directory
+os.chdir("./tools")
+
 # Generate a .img that is half a meg in size, populate with 0's
 subprocess.call(["dd", \
         "if=/dev/zero", \
@@ -14,8 +17,8 @@ subprocess.call(["mkfs.ext2", "backing.img"])
 
 # objdump the new ext2 image into a .o and move it to the right directory
 subprocess.call(["objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386", "backing.img", "backing.o"])
-subprocess.call(["cp", "backing.o", "../../rumprun/lib/libbmk_rumpuser/hw"])
+subprocess.call(["cp", "backing.o", "../../../rumprun/lib/libbmk_rumpuser/hw"])
 
 # Compile the src
-os.chdir("../../rumprun/")
+os.chdir("../../../rumprun/")
 os.system("./build-rr.sh hw -- -F ACFLAGS=-m32")

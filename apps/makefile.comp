@@ -17,11 +17,11 @@ DEPS ?=
 all : $(APP).bin
 	$(RUN) qemu -i $(APP).bin
 
-$(APP).bin : $(APP)
-	$(BAKE) $(LIBS) $(APP).bin $(APP)
+$(APP).bin : $(APP).out
+	$(BAKE) $(LIBS) $(APP).bin $(APP).out
 
-$(APP) : *.o
-	$(LD) $(LDFLAGS) $(APP) *.o
+$(APP).out : *.o
+	$(LD) $(LDFLAGS) $(APP).out *.o
 
 *.o : $(SRC)
 	$(CC) $(CFLAGS) $(SRC)

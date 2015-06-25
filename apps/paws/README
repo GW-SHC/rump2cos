@@ -1,0 +1,6 @@
+This application depends on a backing .img file that gets objcopy'ied into a .o for the application to use.
+
+The make file will look for this .o, if it is not there, it will create it and compile it into the corret place within the rumprun libraries. See the python script in ./tools for information.
+
+For this application to compile correctly, the 2nd half of the linking section of rumprun-bmk-cc needs to be commented out. Also, other applications may require this application to be installed because their makefiles
+look for the backing.o to be installed

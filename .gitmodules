@@ -1,3 +1,7 @@
 [submodule "rumprun"]
 	path = rumprun
 	url = https://github.com/GW-SHC/rumprun.git
+[submodule "Composite"]
+	path = Composite
+	url = https://github.com/GW-SHC/Composite.git
+	branch = ppos

@@ -1,7 +1,6 @@
 SRC = paws.c paws_mount_ext2.c paws_test.c
 APP = paws
 LIBS = paws
-DEPS = backing.o
 
 main : tools/backing.o all
 

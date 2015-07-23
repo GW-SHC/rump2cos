@@ -20,6 +20,7 @@ all : $(APP).bin
 $(APP).bin : $(APP).out
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out
 
+<<<<<<< HEAD
 $(APP).out : *.o
 	@$(LD) $(LDFLAGS) a.out *.o
 	@echo
@@ -34,8 +35,11 @@ $(APP).out : *.o
 	@$(CC) -r -o $(APP).out a.out
 	@rm a.out
 
-*.o : $(SRC)
+$(APP).o : $(SRC)
 	$(CC) $(CFLAGS) $(SRC)
 
 debug : $(APP).bin
 	$(RUN)  qemu -ip -D 1234 $(APP).bin &
+
+clean :
+	rm *.o *.out *.bin

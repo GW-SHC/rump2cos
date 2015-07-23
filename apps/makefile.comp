@@ -3,8 +3,8 @@
 CFLAGS = -g3 -c
 LDFLAGS = -melf_i386 -i -o
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
-CC = $(APPTOOLS)/rumprun-bmk-cc
-LD = $(APPTOOLS)/rumprun-bmk-ld
+CC = $(APPTOOLS)/i486-rumprun-netbsdelf-gcc
+LD = $(APPTOOLS)/i486-rumprun-netbsdelf-ld
 BAKE = $(APPTOOLS)/rumpbake
 RUN = $(APPTOOLS)/rumprun
 
@@ -21,7 +21,18 @@ $(APP).bin : $(APP).out
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out
 
 $(APP).out : *.o
-	$(LD) $(LDFLAGS) $(APP).out *.o
+	@$(LD) $(LDFLAGS) a.out *.o
+	@echo
+	@echo =---------------------------------------=
+	@echo
+	@echo	If you compilation fails here,
+	@echo	comment out lines 93-104 of
+	@echo	rumprun/app-tools/i486-rumprun-netbsdelf-gcc
+	@echo
+	@echo =---------------------------------------=
+	@echo
+	@$(CC) -r -o $(APP).out a.out
+	@rm a.out
 
 *.o : $(SRC)
 	$(CC) $(CFLAGS) $(SRC)

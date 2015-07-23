@@ -1,10 +1,10 @@
 #include <stdio.h>
 
-void
-__cerror(void)
-{
-	return;
-}
+//void
+//__cerror(void)
+//{
+//	return;
+//}
 
 void
 main(void)

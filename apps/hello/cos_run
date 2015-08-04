@@ -1,0 +1,52 @@
+#!/bin/bash
+#Compile cos or rumpkernel and run RK on top of Composite
+# pass in -s for recompiling only cosrun.c
+# -R for recompiling the entire rumpkernel 
+# -C for recompiling composite
+
+rm ~/research/rump2cos/apps/hello/hello.{bin,o,out}
+
+while getopts "SRC" opt; do
+  case $opt in
+    S)
+	echo "Recompiling only cosrun.c." >&2
+	rm ~/research/rump2cos/rumprun/platform/cos/cosrun.o
+        pushd ~/research/rump2cos/rumprun
+        ./build-rr.sh cos -- -F ACFLAGS=-m32
+        popd	
+	;;
+    R)
+      echo "Re-compiling the entire rumpkernel." >&2
+      sudo rm -r  ~/research/rump2cos/rumprun/platform/cos/rump
+      sudo rm -r  ~/research/rump2cos/rumprun/platform/cos/rumpobj
+      sudo rm -r  ~/research/rump2cos/rumprun/platform/cos/rumptools
+      rm ~/research/rump2cos/rumprun/platform/cos/cosrun.o
+      pushd ~/research/rump2cos/rumprun
+      ./build-rr.sh cos -- -F ACFLAGS=-m32
+      popd
+      ;;
+    C)
+	echo "Recompiling Cos, assuming composite has been set up for compilation." >&2
+        pushd ~/research/composite/src
+	make clean
+	make
+	make cp
+	popd
+	;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      ;;
+  esac
+done
+
+make
+
+pushd ~/research/composite/src/components/implementation/no_interface/rumpbooter
+echo "calling ./buildcosrump.sh" >&2
+./buildRumpCos.sh
+popd
+
+pushd ~/transfer
+echo "calling ./qemu.sh rumpkernboot.sh"
+./qemu.sh rumpkernboot.sh
+popd

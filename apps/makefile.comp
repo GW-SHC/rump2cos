@@ -1,7 +1,7 @@
 # Main make file. All others will simply change the variables within this one
 
 CFLAGS = -g3 -c
-LDFLAGS = -melf_i386 -i -o
+LDFLAGS = -melf_i386 -r -o
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
 CC = $(APPTOOLS)/i486-rumprun-netbsdelf-gcc
 LD = $(APPTOOLS)/i486-rumprun-netbsdelf-ld
@@ -31,7 +31,7 @@ $(APP).out : $(APP).o
 	@echo
 	@echo =---------------------------------------=
 	@echo
-	@$(CC) -r -o $(APP).out a.out
+	@$(CC) -Wl,-r -o $(APP).out a.out
 	@rm a.out
 
 $(APP).o : $(SRC)

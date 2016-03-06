@@ -7,7 +7,10 @@ printdirs(char dir[])
         struct dirent *dp;
 
         while((dp = readdir(dip)) != NULL) {
-                sleep(2);
+                // RG: We can't handel sleep calls rn, We need to figure out what the isr_thread is
+		// * expecting for sleeping requests
+		 sleep(2);
+
                 printf("Current directory %s/%s\n", dir, dp->d_name);
         }
 }
@@ -39,11 +42,24 @@ testmount(void)
         char writer[] = "abcdabcdabcabcdabcabcdabcdabcdabcabcdabcdabcdabcabcdabcabcdabcabcdabcabcdabcabcdabcddddddddd\n";
         char writer2[] = "efgefgefgefgefgefefefefefgefgefgefgefefefefgefefggefefgefefefgefgefefgefgefgefgefggefgefggggggggggg\n";
 
+	printf("Printing /\n");
+	printdirs("/");
+	printf("\n");
+
+	printf("Printing /dev\n");
+	printdirs("/dev");
+	printf("\n");
+
         fd = open("/dev/paws", O_RDWR);
         assert(fd != -1);
 
+	printf("fd for /dev/paws is: %d\n", fd);
+
         rv = fstat(fd, &sb);
         assert(rv == 0);
+
+	printf("fstat info: st_dev %d\n", (int)(sb.st_dev));
+	printf("fstat info: st_size %d\n", (int)(sb.st_size));
 
         close(fd);
 
@@ -52,7 +68,9 @@ testmount(void)
         rv = mount_paws(MOUNT_EXT2FS, "/mnt", 0, &args, sizeof(args));
         assert(rv != -1);
 
-        /* The backing image for paws already has some directories and a file that were placed in the host directory */
+        /* The backing image for paws already has some directories and a file
+	 * that were placed in the host directory
+	 */
         printf("\nfirst print:\n");
         printdirs("/mnt");
 

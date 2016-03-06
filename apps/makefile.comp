@@ -21,7 +21,7 @@ $(APP).bin : $(APP).out
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out
 
 $(APP).out : $(APP).o
-	@$(LD) $(LDFLAGS) a.out *.o
+	$(LD) $(LDFLAGS) a.out *.o
 	@echo
 	@echo =---------------------------------------=
 	@echo
@@ -31,7 +31,7 @@ $(APP).out : $(APP).o
 	@echo
 	@echo =---------------------------------------=
 	@echo
-	@$(CC) -Wl,-r -o $(APP).out a.out
+	$(CC) -Wl,-r -o $(APP).out a.out
 	@rm a.out
 
 $(APP).o : $(SRC)

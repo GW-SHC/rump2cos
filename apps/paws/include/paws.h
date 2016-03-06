@@ -17,13 +17,10 @@
 #include <unistd.h>
 #include <assert.h>
 
-int
-mount_paws(const char *type, const char *dir, int flags, void *data, size_t data_len);
+int mount_paws(const char *type, const char *dir, int flags, void *data, size_t data_len);
 
-int
-unmount_paws(const char *dir, int flags);
+int unmount_paws(const char *dir, int flags);
 
-int
-paws_tests(void);
+int paws_tests(void);
 
 #endif /* PAWS_H */

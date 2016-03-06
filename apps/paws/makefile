@@ -1,4 +1,4 @@
-SRC = paws.c paws_mount_ext2.c paws_test.c
+SRC = paws.c paws_mount_ext2.c paws_test.c paws_stubs.c
 APP = paws
 LIBS = paws
 

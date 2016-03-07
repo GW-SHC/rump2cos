@@ -7,8 +7,6 @@ printdirs(char dir[])
         struct dirent *dp;
 
         while((dp = readdir(dip)) != NULL) {
-                // RG: We can't handel sleep calls rn, We need to figure out what the isr_thread is
-		// * expecting for sleeping requests
 		 sleep(2);
 
                 printf("Current directory %s/%s\n", dir, dp->d_name);
@@ -173,7 +171,8 @@ paws_tests(void)
 {
         int rv;
 
-        /* testreadwrite(); */
+        rv = testreadwrite();
+	assert(rv == 0);
 
         rv = testmkdir();
         assert(rv == 0);

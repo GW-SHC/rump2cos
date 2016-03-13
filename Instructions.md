@@ -24,12 +24,14 @@ All set! Go to build steps now.
 ##### Compile rump2cos
 
 There are 2 different ways of compiling `rumpkernel`!
+
 1. The RK is configured currently to expect a backing.o file used for the paws application. Going into `apps/paws` and doing a `make` will build `rumpkernel`, and `paws` application and place the backing.o into the appropirate location.
 
 This can and should be fixed eventually so that the RK can be compiled
 without being interfiered by application dependencies.
 
 2. Going into `rumprun` and executing `build-rr.sh [platform]` script: This will build rumpkernel alone. Possible platforms to pass are cos, hw, and xen.
+3. 
 **Note** RK is not currently designed to be able to change platforms
 after the initial build-rr.sh, if one wishes to make a RK with platform
 hw after using cos, it is advised to make a separate rumprun direcotry.

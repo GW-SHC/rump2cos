@@ -280,21 +280,62 @@ phani@phani-thinkpad:~/research/rump2cos/Composite/transfer$
 ##### Pushing your changes
 
 The rump2cos repository is comprised of an app/ direcotry as well as two
-git submodules or sub repositories.
+git submodules or sub repositories, `Composite` and `rumprun`
 
-Editing any of the code within the subrepositories (Cos or rumprun) will
-requre a commit and a push within those repos individually.
-For example, switching to Composite/ directory will switch ones git status to report information from the Composite repository. Any changes made in the Composite/ directory will need to be commited and pushed to the Composite repo.
-Changing back to the higher rump2cos directory, one can now add the new
-commit number of the Composite submodle as if it was a file difference or
-any other git recognizable change. The same applies to rumprun.
+Start in either of the two submodules
+
+###### Composite  
+Make a new commit as you would with any repository.  
+`git add <files you wish to add>`  
+`git commit`  
+If you are being smart and working in a different branch with just your changes, merge back to the ppos local branch.  
+`git checkout ppos`  
+`git merge <your patch branch>`  
+Check to see which remote you have for GW-SHC/Composite.  
+`git remote -v`  
+Push to that remote.  
+If you have a ppos local branch that is merged and contains your latest commit:  
+`git push <remote> ppos`  
+If you don't have a ppos local branch and are working in a detacthed HEAD state:  
+`git push <remote> HEAD:ppos`  
+The later option works by pushing what ever branch you are on up to ppos instead of matching the branches ppos local to ppos remote.  
+
+**IF** you run into a rejection:  
+`git pull <remote> ppos`  
+This will pull down what ever commits you don't have and and merge them for you.  
+Fix merge clonficts if you have them.  
+Now push again with instructions above.  
+
+###### rumprun  
+Make a new commit as you would with any repository.  
+`git add <files you wish to add>`  
+`git commit`  
+If you are being smart and working in a different branch with just your changes, merge back to the master local branch.  
+`git checkout master`  
+`git merge <your patch branch>`  
+Check to see which remote you have for GW-SHC/rumprun.  
+`git remote -v` 
+Push to that remote.  
+`git push <remote> master`  
+
+**IF** you run into a rejection:  
+`git pull <remote> master`  
+This will pull down what ever commits you don't have and and merge them for you.  
+Fix merge clonficts if you have them.  
+Now push again with instructions above.  
 
 Once as all new commit numbers have been added to rump2cos, one can push
-the main repository.
+the main repository.  
+In rump2cos/  
+`git add Composite`  
+`git add rumprun`  
+Add any other files or changes you want.  
+Commit everything.  
+`git push <remote> master`  
+Follow above instructions if you run into a rejection.
 
 **Note** If you commit the submodules and add their commit number to
 push rump2cos *but* forget to push the submodules themselves, others will have errors when pulling down the new code as the rump2cos submodules will be pointing to commits that do not exist on github.
-the remote repositories.
 
 ##### Pulling others changes
 When pulling, follow the instructions marked at the beginning, skipping the submodule init. One only has to run git submodule update --recursive inorder to pull down the new code for the submodules.

@@ -24,5 +24,9 @@ main(void)
 
         paws_tests();
 
+	while(1) {
+		sleep(10);
+	}
+
         return 0;
 }

@@ -1,4 +1,11 @@
 #include "include/paws.h"
+      #include <arpa/inet.h>
+       #include <sys/socket.h>
+       #include <netdb.h>
+       #include <ifaddrs.h>
+       #include <stdio.h>
+       #include <stdlib.h>
+       #include <unistd.h>
 
 static void
 printdirs(char dir[])
@@ -166,6 +173,28 @@ testreadwrite(void)
         return 0;
 }
 
+void
+paws_ifconfig(void)
+{
+	struct ifaddrs * addrs;
+	struct ifaddrs * tmp;
+	getifaddrs(&addrs);
+	tmp = addrs;
+
+	while (tmp) 
+	{
+		if (tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_INET)
+		{
+			struct sockaddr_in *pAddr = (struct sockaddr_in *)tmp->ifa_addr;
+			printf("%s: %s\n", tmp->ifa_name, inet_ntoa(pAddr->sin_addr));
+		}
+
+		tmp = tmp->ifa_next;
+	}
+
+	freeifaddrs(addrs);	
+}
+
 int
 paws_tests(void)
 {
@@ -179,6 +208,8 @@ paws_tests(void)
 
         rv = testmount();
         assert(rv == 0);
+
+	paws_ifconfig();
 
         return 0;
 }

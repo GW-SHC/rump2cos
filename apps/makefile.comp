@@ -8,6 +8,9 @@ LD = $(APPTOOLS)/i486-rumprun-netbsdelf-ld
 BAKE = $(APPTOOLS)/rumpbake
 RUN = $(APPTOOLS)/rumprun
 
+
+RUNCONFS ?= -T ../temp qemu -i -M 128 -I if,vioif,'-net tap,script=no,ifname=tap0' -W if,inet,static,10.0.120.101/24 --
+RUNPOST  ?=
 SRC ?=
 OBJ ?=
 APP ?= app
@@ -16,7 +19,7 @@ DEPS ?=
 
 all : $(APP).bin
 	# $(RUN) qemu -i $(APP).bin
-	$(RUN) -T ../temp qemu -i -M 128 -I if,vioif,'-net tap,script=no,ifname=tap0' -W if,inet,static,10.0.120.101/24 -- $(APP).bin
+	$(RUN) $(RUNCONFS) $(APP).bin $(RUNPOST)
 
 $(APP).bin : $(APP).out
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out
@@ -42,5 +45,6 @@ debug : $(APP).bin
 	$(RUN)  qemu -ip -D 1234 $(APP).bin &
 
 clean :
-	rm *.o *.out *.bin
+	rm *.out *.bin
 	rm -fr ../temp
+	rm *.o

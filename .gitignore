@@ -16,6 +16,8 @@
 *.la
 *.lo
 *.img
+*.iso
+nginx
 
 # Shared objects (inc. Windows DLLs)
 *.dll
@@ -32,3 +34,6 @@
 *.hex
 *.out
 *.bin
+
+# Directories
+apps/temp

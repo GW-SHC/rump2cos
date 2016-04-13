@@ -4,18 +4,10 @@ import os
 # Start in the right directory
 os.chdir("./tools")
 
-# Generate a .img that is half a meg in size, populate with 0's
-subprocess.call(["dd", \
-        "if=/dev/zero", \
-        "iflag=fullblock", \
-        "of=data.iso", \
-        "bs=512", \
-        "count=1024"])
+# Copy data.iso into this directory
+subprocess.call(["cp", "../images/data.iso", "."])
 
-# Execute mkfs.ext2 on .img
-subprocess.call(["mkfs.ext2", "data.iso"])
-
-# objdump the new ext2 image into a .o and move it to the right directory
+# Objdump the new ext2 image into a .o and move it to the right directory
 subprocess.call(["objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386", "data.iso", "backing.o"])
 subprocess.call(["cp", "backing.o", "../../../rumprun/lib/libbmk_rumpuser/cos"])
 

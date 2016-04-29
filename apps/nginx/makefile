@@ -9,15 +9,15 @@ main : copy backing run
 include ../makefile.comp
 
 copy : compile
-	cp -r ../../rumprun-packages/nginx/ images
+	cp -r ../../rumprun-packages/nginx/images ./
 	cp ../../rumprun-packages/nginx/bin/nginx nginx
 
 compile :
 	./../../rumprun-packages/nginx/runmake.sh
 
 backing :
-	rm tools/data.iso
-	rm tools/backing.o
+	-rm tools/data.iso
+	-rm tools/backing.o
 	cd ../../rumprun/platform/cos; make clean;
 	python ./tools/buildbacking.py
 

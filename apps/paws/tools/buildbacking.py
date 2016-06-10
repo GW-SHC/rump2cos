@@ -8,15 +8,15 @@ os.chdir("./tools")
 subprocess.call(["dd", \
         "if=/dev/zero", \
         "iflag=fullblock", \
-        "of=backing.img", \
+        "of=data.iso", \
         "bs=512", \
         "count=1024"])
 
 # Execute mkfs.ext2 on .img
-subprocess.call(["mkfs.ext2", "backing.img"])
+subprocess.call(["mkfs.ext2", "data.iso"])
 
 # objdump the new ext2 image into a .o and move it to the right directory
-subprocess.call(["objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386", "backing.img", "backing.o"])
+subprocess.call(["objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386", "data.iso", "backing.o"])
 subprocess.call(["cp", "backing.o", "../../../rumprun/lib/libbmk_rumpuser/cos"])
 
 # Compile the src

@@ -7,14 +7,14 @@
        #include <stdlib.h>
        #include <unistd.h>
 
-static void
+void
 printdirs(char dir[])
 {
         DIR *dip = opendir(dir);
         struct dirent *dp;
 
         while((dp = readdir(dip)) != NULL) {
-		 sleep(1);
+		 //sleep(1);
 
                 printf("Current directory %s/%s\n", dir, dp->d_name);
         }

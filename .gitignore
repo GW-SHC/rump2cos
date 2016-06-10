@@ -5,6 +5,7 @@
 *.elf
 *.swp
 *.out
+*.iso
 
 # Precompiled Headers
 *.gch

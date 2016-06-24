@@ -11,4 +11,9 @@ backing :
 tools/backing.o :
 	@ python ./tools/buildbacking.py
 
+patch :
+	# For all future patches to src-netbsd
+	cp ./tools/*.patch ../../rumprun/src-netbsd
+	cd ../../rumprun/src-netbsd; git apply --stat *.patch
+
 include ../makefile.comp

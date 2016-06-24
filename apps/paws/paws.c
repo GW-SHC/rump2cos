@@ -10,37 +10,40 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 
-#include <net/if_tun.h>
+#include <net/if_cnic.h>
 
 #include <errno.h>
 
 int
 main(void)
 {
+
 	int rv, fd;
 	int i;
 	int debug = 1;
 	char readbuf[1500];
 
+	paws_tests();
+
 	printf("Clean verison of paws. Using netconfig interface in buildrump.sh\n");
 	printf("Should have a real networking device at this point\n");
 
-	printf("Lets make a tun device...\n");
+	printf("Lets make a cnic device...\n");
 
-	fd = open("/dev/tun0", O_RDWR);
+	fd = open("/dev/cnic0", O_RDWR);
 	printf("open fd: %d\n", fd);
 
-	rv = ioctl(fd, TUNSDEBUG, &debug);
+	rv = ioctl(fd, CNICSDEBUG, &debug);
 	printf("Tun Debug: %d\n", rv);
 
-	rv = rump_pub_netconfig_ipv4_ifaddr("tun0", "111.111.111.0", "255.255.255.0");
+	rv = rump_pub_netconfig_ipv4_ifaddr("cnic0", "111.111.111.0", "255.255.255.0");
 	printf("ipv4_ifaddr: %d\n", rv);
 
 	rv = rump_pub_netconfig_ipv4_gw("111.111.111.0");
 	printf("ipv4_gw: %d\n", rv);
 	printf("TODO: Check above function to see what it does\n");
 
-	rv = rump_pub_netconfig_ifup("tun0");
+	rv = rump_pub_netconfig_ifup("cnic0");
 	printf("ifup: %d\n", rv);
 
 	printf("done\n");
@@ -61,7 +64,7 @@ main(void)
 		/*
 		 * bytes 17 - 20 are new source address
 		 * bytes 13 - 16 are new destination address
-		 * Modify packet directly and write out to tun device
+		 * Modify packet directly and write out to cnic device
 		 */
 		char writebuf[i];
 		memcpy(writebuf, readbuf, i);
@@ -85,7 +88,6 @@ main(void)
 	while(1);
 
 
-	//paws_tests();
 
 	return 0;
 }

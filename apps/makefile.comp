@@ -25,7 +25,8 @@ $(APP).bin : $(APP).out
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out
 
 $(APP).out : $(APP).o
-	$(LD) $(LDFLAGS) a.out *.o $(DEPS)
+	#$(LD) $(LDFLAGS) a.out *.o $(DEPS)
+	$(LD) $(LDFLAGS) $(APP).out *.o $(DEPS)
 	@echo
 	@echo =---------------------------------------=
 	@echo
@@ -35,15 +36,15 @@ $(APP).out : $(APP).o
 	@echo
 	@echo =---------------------------------------=
 	@echo
-	$(CC) -m32 -Wl,-r -o $(APP).out a.out
-	@rm a.out
+	#$(CC) -m32 -Wl,-r -o $(APP).out a.out
+	#@rm a.out
 
 $(APP).o : $(SRC)
 	# since we are just compiling we need to manually get the recipe.s file from app-tools
 	# the app-tools/bake script looks for it.
 	# This is kinda an out of place command. It uses the host computer's gcc
-	# gcc -m32 -c -o recipe.o ../../rumprun/app-tools/i486-rumprun-netbsdelf-recipe.s
-	$(CC) $(CFLAGS) -c $(SRC)
+	gcc -m32 -c -o recipe.o ../../rumprun/app-tools/i486-rumprun-netbsdelf-recipe.s
+	$(CC) $(CFLAGS) $(SRC)
 
 debug : $(APP).bin
 	$(RUN)  qemu -ip -D 1234 $(APP).bin &

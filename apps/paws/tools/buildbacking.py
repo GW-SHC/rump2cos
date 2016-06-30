@@ -21,5 +21,5 @@ subprocess.call(["cp", "backing.o", "../../../rumprun/lib/libbmk_rumpuser/cos"])
 
 # Compile the src
 os.chdir("../../../rumprun/")
-os.system("./build-rr.sh cos -- -F ACFLAGS=-m32")
-#os.system("./build-rr.sh cos")
+#os.system("./build-rr.sh cos -- -F ACFLAGS=-m32")
+os.system("./build-rr.sh cos")

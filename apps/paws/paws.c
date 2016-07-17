@@ -33,8 +33,8 @@ main(void)
 	fd = open("/dev/cnic0", O_RDWR);
 	printf("open fd: %d\n", fd);
 
-	rv = ioctl(fd, CNICSDEBUG, &debug);
-	printf("Tun Debug: %d\n", rv);
+	//rv = ioctl(fd, CNICSDEBUG, &debug);
+	//printf("Tun Debug: %d\n", rv);
 
 	rv = rump_pub_netconfig_ipv4_ifaddr("cnic0", "111.111.111.0", "255.255.255.0");
 	printf("ipv4_ifaddr: %d\n", rv);
@@ -48,26 +48,28 @@ main(void)
 
 	printf("done\n");
 
-	printf("Reading...\n");
+	//printf("Reading...\n");
 
 	while(1) {
 		memset(readbuf, '\0', sizeof(readbuf));
 		rv = read(fd, readbuf, sizeof(readbuf));
-		i = 0;
-		while(i != rv) {
-			printf("%04x ", readbuf[i]);
-			i++;
-		}
-		printf("\n");
 
-		printf("\nSending a reply...\n");
+		//i = 0;
+		//while(i != rv) {
+		//	printf("%04x ", readbuf[i]);
+		//	i++;
+		//}
+		//printf("\n");
+
+		//printf("\nSending a reply...\n");
+
 		/*
 		 * bytes 17 - 20 are new source address
 		 * bytes 13 - 16 are new destination address
 		 * Modify packet directly and write out to cnic device
 		 */
-		char writebuf[i];
-		memcpy(writebuf, readbuf, i);
+		char writebuf[rv];
+		memcpy(writebuf, readbuf, rv);
 		writebuf[16] = readbuf[12];
 		writebuf[17] = readbuf[13];
 		writebuf[18] = readbuf[14];

@@ -22,9 +22,9 @@ main(void)
 	int i;
 	int debug = 1;
 	char readbuf[1500];
-
-	paws_tests();
-
+	extern int rump_vmid;
+	//paws_tests();
+	printf("vmid: %d\n", rump_vmid);
 	printf("Clean verison of paws. Using netconfig interface in buildrump.sh\n");
 	printf("Should have a real networking device at this point\n");
 
@@ -38,8 +38,8 @@ main(void)
 
 	rv = rump_pub_netconfig_ipv4_ifaddr("cnic0", "111.111.111.0", "255.255.255.0");
 	printf("ipv4_ifaddr: %d\n", rv);
-
 	rv = rump_pub_netconfig_ipv4_gw("111.111.111.0");
+	
 	printf("ipv4_gw: %d\n", rv);
 	printf("TODO: Check above function to see what it does\n");
 

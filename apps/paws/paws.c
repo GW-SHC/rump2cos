@@ -17,24 +17,26 @@
 int
 main(void)
 {
-
 	int rv, fd;
 	int i;
 	int debug = 1;
 	char readbuf[1500];
 
-	paws_tests();
-
-	printf("Clean verison of paws. Using netconfig interface in buildrump.sh\n");
-	printf("Should have a real networking device at this point\n");
+	/*
+	 * Uncomment for paws file system tests
+	 * paws_tests();
+	 */
 
 	printf("Lets make a cnic device...\n");
 
 	fd = open("/dev/cnic0", O_RDWR);
 	printf("open fd: %d\n", fd);
 
-	//rv = ioctl(fd, CNICSDEBUG, &debug);
-	//printf("Tun Debug: %d\n", rv);
+	/*
+	 * Uncomment for cnic debuging
+	 * rv = ioctl(fd, CNICSDEBUG, &debug);
+	 * printf("Tun Debug: %d\n", rv);
+	 */
 
 	rv = rump_pub_netconfig_ipv4_ifaddr("cnic0", "111.111.111.0", "255.255.255.0");
 	printf("ipv4_ifaddr: %d\n", rv);
@@ -48,20 +50,21 @@ main(void)
 
 	printf("done\n");
 
-	//printf("Reading...\n");
-
 	while(1) {
 		memset(readbuf, '\0', sizeof(readbuf));
 		rv = read(fd, readbuf, sizeof(readbuf));
 
-		//i = 0;
-		//while(i != rv) {
-		//	printf("%04x ", readbuf[i]);
-		//	i++;
-		//}
-		//printf("\n");
+		/*
+		 * Uncomment for debugging
+		 * i = 0;
+		 * while(i != rv) {
+		 * 	printf("%04x ", readbuf[i]);
+		 * 	i++;
+		 * }
+		 * printf("\n");
 
-		//printf("\nSending a reply...\n");
+		 * printf("\nSending a reply...\n");
+		 */
 
 		/*
 		 * bytes 17 - 20 are new source address
@@ -82,14 +85,6 @@ main(void)
 
 		write(fd, writebuf, sizeof(writebuf));
 	}
-
-	printf("done\n");
-
-	printf("Spinning...\n");
-
-	while(1);
-
-
 
 	return 0;
 }

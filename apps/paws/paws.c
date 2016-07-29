@@ -26,10 +26,12 @@ main(void)
 	
 	printf("vmid: %d\n", rump_vmid);
 
-	printf("Clean verison of paws. Using netconfig interface in buildrump.sh. vmid: %d\n", rump_vmid);
+	printf("Clean verison of paws. Using netconfig interface in buildrump.sh\n");
 	printf("Should have a real networking device at this point\n");
-
-	printf("Lets make a cnic device...\n");
+	/*
+	 * Uncomment for paws file system tests
+	 * paws_tests();
+	 */
 	
 	if(rump_vmid == 0){
 		printf("creating dom0\n");
@@ -39,18 +41,22 @@ main(void)
 		fd = cnic_create(rump_vmid);
 	}
 
+
 	while(1) {
 		memset(readbuf, '\0', sizeof(readbuf));
 		rv = read(fd, readbuf, sizeof(readbuf));
 
-		//i = 0;
-		//while(i != rv) {
-		//	printf("%04x ", readbuf[i]);
-		//	i++;
-		//}
-		//printf("\n");
+		/*
+		 * Uncomment for debugging
+		 * i = 0;
+		 * while(i != rv) {
+		 * 	printf("%04x ", readbuf[i]);
+		 * 	i++;
+		 * }
+		 * printf("\n");
 
-		//printf("\nSending a reply...\n");
+		 * printf("\nSending a reply...\n");
+		 */
 
 		/*
 		 * bytes 17 - 20 are new source address
@@ -71,14 +77,6 @@ main(void)
 
 		write(fd, writebuf, sizeof(writebuf));
 	}
-
-	printf("done\n");
-
-	printf("Spinning...\n");
-
-	while(1);
-
-
 
 	return 0;
 }

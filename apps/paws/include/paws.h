@@ -25,4 +25,7 @@ int paws_tests(void);
 
 void printdirs(char []);
 
+int cnic_create(int rump_vmid);
+int create_dom0(void);
+
 #endif /* PAWS_H */

@@ -13,7 +13,8 @@ tools/backing.o :
 
 patch :
 	# For all future patches to src-netbsd
-	cp ./tools/*.patch ../../rumprun/src-netbsd
-	cd ../../rumprun/src-netbsd; git apply --stat *.patch
+	cp ./tools/cnic.patch ../../rumprun/src-netbsd
+	cd ../../rumprun/src-netbsd; git apply --stat cnic.patch
+	cd ../../rumprun/src-netbsd; git apply cnic.patch; rm cnic.patch
 
 include ../makefile.comp

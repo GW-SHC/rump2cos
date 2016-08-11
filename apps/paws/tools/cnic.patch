@@ -1,23 +1,38 @@
-From 7df87509a6db2c3aceda423ec74d6b25dee2b8a8 Mon Sep 17 00:00:00 2001
+From 99770c76cc48b47252d5351f2d0cfa4c97440c8f Mon Sep 17 00:00:00 2001
 From: Robert Gifford <robertgif@gmail.com>
-Date: Fri, 24 Jun 2016 16:38:04 -0400
-Subject: [PATCH] Added cnic device
+Date: Thu, 11 Aug 2016 12:01:48 -0400
+Subject: [PATCH] Add cnic interface and enable routing to each cnic
 
 ---
- sys/net/if_cnic.c                       | 1098 +++++++++++++++++++++++++++++++
+ sys/net/Makefile                        |    3 +-
+ sys/net/if_cnic.c                       | 1105 +++++++++++++++++++++++++++++++
  sys/net/if_cnic.h                       |   44 ++
  sys/rump/net/lib/libtap/Makefile        |    2 +
  sys/rump/net/lib/libtap/tap_component.c |   39 +-
- 4 files changed, 1178 insertions(+), 5 deletions(-)
+ 5 files changed, 1187 insertions(+), 6 deletions(-)
  create mode 100644 sys/net/if_cnic.c
  create mode 100644 sys/net/if_cnic.h
 
+diff --git a/sys/net/Makefile b/sys/net/Makefile
+index 7ba90fa..4c06462 100644
+--- a/sys/net/Makefile
++++ b/sys/net/Makefile
+@@ -8,7 +8,8 @@ INCS=	bpf.h bpfjit.h bpfdesc.h dlt.h ethertypes.h if.h if_arc.h if_arp.h \
+ 	if_pflog.h if_ppp.h if_pppoe.h if_sppp.h if_srt.h if_stf.h \
+ 	if_tap.h if_token.h if_tun.h if_types.h if_vlanvar.h net_stats.h \
+ 	netisr.h pfil.h pfkeyv2.h pfvar.h ppp-comp.h ppp_defs.h radix.h \
+-	raw_cb.h route.h slcompress.h slip.h zlib.h
++	raw_cb.h route.h slcompress.h slip.h zlib.h \
++	if_cnic.h
+ 
+ SUBDIR=	agr npf
+ 
 diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
 new file mode 100644
-index 0000000..b3344d9
+index 0000000..7deca15
 --- /dev/null
 +++ b/sys/net/if_cnic.c
-@@ -0,0 +1,1098 @@
+@@ -0,0 +1,1105 @@
 +/* All rights go the NetBSD, this is simply a copy of if_tun.c with tun namespace replaced with cnic */
 +
 +#include <sys/cdefs.h>
@@ -281,6 +296,10 @@ index 0000000..b3344d9
 + * cnicnel open - must be superuser & the device must be
 + * configured in
 + */
++
++/* HACK FIXME */
++struct ifnet *global_ifp = 0;
++
 +static int
 +cnicopen(dev_t dev, int flag, int mode, struct lwp *l)
 +{
@@ -310,6 +329,9 @@ index 0000000..b3344d9
 +	}
 +
 +	ifp = &tp->cnic_if;
++
++	global_ifp = ifp;
++
 +	tp->cnic_flags |= CNIC_OPEN;
 +	CNICDEBUG("%s: open\n", ifp->if_xname);
 +out:

@@ -1,6 +1,6 @@
 # Main make file. All others will simply change the variables within this one
 
-CFLAGS += -g3 -m32 -c
+CFLAGS += -O3 -g -m32 -c -I../rumprun/platform/cos/rump/include
 LDFLAGS = -melf_i386 -r -o
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
 CC = $(APPTOOLS)/i486-rumprun-netbsdelf-gcc
@@ -19,7 +19,7 @@ DEPS ?=
 
 all : $(APP).bin
 	# $(RUN) qemu -i $(APP).bin
-	$(RUN) $(RUNCONFS) $(APP).bin $(RUNPOST)
+	#$(RUN) $(RUNCONFS) $(APP).bin $(RUNPOST)
 
 $(APP).bin : $(APP).out
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out
@@ -43,7 +43,7 @@ $(APP).o : $(SRC)
 	# since we are just compiling we need to manually get the recipe.s file from app-tools
 	# the app-tools/bake script looks for it.
 	# This is kinda an out of place command. It uses the host computer's gcc
-	gcc -m32 -c -o recipe.o ../../rumprun/app-tools/i486-rumprun-netbsdelf-recipe.s
+	gcc -m32 -O3 -c -o recipe.o ../../rumprun/app-tools/i486-rumprun-netbsdelf-recipe.s
 	$(CC) $(CFLAGS) $(SRC)
 
 debug : $(APP).bin

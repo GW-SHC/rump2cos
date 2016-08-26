@@ -1,91 +1,85 @@
 #include "include/paws.h"
-
 #include <netconfig.h>
-
+#include <assert.h>
 #include <stdio.h>
 #include <malloc.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-
-#include <net/if_tun.h>
-
+#include <net/if_cnic.h>
 #include <errno.h>
+
+extern int vmid;
+
+int
+cnic_create(int num, char *addr, char *netmask){
+
+	int rv, fd;
+	int i;
+	int debug = 1;
+	char cnic_dev[11];
+	char cnic[6];
+
+	if(!vmid) printf("creating cnic%d for DOM0\n", num);
+	else printf("creating cnic%d for VM%d\n", num, vmid);
+
+	sprintf(cnic, "cnic%d", num);
+	printf("%s\n", cnic);
+	sprintf(cnic_dev, "/dev/cnic%d", num);
+	printf("%s\n", cnic_dev);
+	printf("addr: %s\n", addr);
+	printf("netmask: %s\n", netmask);
+
+	fd = open(cnic_dev, O_RDWR);
+	printf("open fd: %d\n", fd);
+
+	rv = ioctl(fd, CNICSDEBUG, &debug);
+	if(!rv) printf("cnic%d set debug: success\n", num);
+	else printf("cnic%d set debug: fail %d\n", num, rv);
+
+	rv = rump_pub_netconfig_ipv4_ifaddr(cnic, addr, netmask);
+	if(!rv) printf("ipv4 set address: success\n");
+	else printf("ipv4 set address: fail %d\n", rv);
+
+	rv = rump_pub_netconfig_ipv4_gw(addr);
+	if(!rv) printf("ipv4 set gw: success\n");
+	else printf("ipv4 set gw: fail %d\n", rv);
+
+	rv = rump_pub_netconfig_ifup(cnic);
+	if(!rv) printf("ifup: success\n");
+	else printf("ifup: fail %d\n", rv);
+	
+	return fd;	
+}
 
 int
 main(void)
 {
-	int rv, fd;
+
+	int rv, fd, fd2;
 	int i;
 	int debug = 1;
 	char readbuf[1500];
+	
+	/*
+	 * Uncomment for paws file system tests
+	 * paws_tests();
+	 */
 
-	printf("Clean verison of paws. Using netconfig interface in buildrump.sh\n");
-	printf("Should have a real networking device at this point\n");
-
-	printf("Lets make a tun device...\n");
-
-	fd = open("/dev/tun0", O_RDWR);
-	printf("open fd: %d\n", fd);
-
-	rv = ioctl(fd, TUNSDEBUG, &debug);
-	printf("Tun Debug: %d\n", rv);
-
-	rv = rump_pub_netconfig_ipv4_ifaddr("tun0", "111.111.111.0", "255.255.255.0");
-	printf("ipv4_ifaddr: %d\n", rv);
-
-	rv = rump_pub_netconfig_ipv4_gw("111.111.111.0");
-	printf("ipv4_gw: %d\n", rv);
-	printf("TODO: Check above function to see what it does\n");
-
-	rv = rump_pub_netconfig_ifup("tun0");
-	printf("ifup: %d\n", rv);
-
-	printf("done\n");
-
-	printf("Reading...\n");
-
-	while(1) {
-		memset(readbuf, '\0', sizeof(readbuf));
-		rv = read(fd, readbuf, sizeof(readbuf));
-		i = 0;
-		while(i != rv) {
-			printf("%04x ", readbuf[i]);
-			i++;
-		}
-		printf("\n");
-
-		printf("\nSending a reply...\n");
-		/*
-		 * bytes 17 - 20 are new source address
-		 * bytes 13 - 16 are new destination address
-		 * Modify packet directly and write out to tun device
-		 */
-		char writebuf[i];
-		memcpy(writebuf, readbuf, i);
-		writebuf[16] = readbuf[12];
-		writebuf[17] = readbuf[13];
-		writebuf[18] = readbuf[14];
-		writebuf[19] = readbuf[15];
-
-		writebuf[12] = readbuf[16];
-		writebuf[13] = readbuf[17];
-		writebuf[14] = readbuf[18];
-		writebuf[15] = readbuf[19];
-
-		write(fd, writebuf, sizeof(writebuf));
+	if(vmid == 0) {
+		printf("----- dom0 -----\n");
+	        fd  = cnic_create(1, "111.111.111.0", "255.255.255.0");	
+	        fd2 = cnic_create(2, "222.222.222.0", "255.255.255.0");	
+	} else {
+		printf("creating VM%d\n", vmid);
+	        fd  = cnic_create(1, "111.111.111.1", "255.255.255.0");	
 	}
 
-	printf("done\n");
-
-	printf("Spinning...\n");
-
-	while(1);
-
-
-	//paws_tests();
+	printf("Done\nBlocking lwp thread indefinitly\n");
+	bmk_sched_blockprepare();
+	bmk_sched_block();
+	assert(0);
 
 	return 0;
 }

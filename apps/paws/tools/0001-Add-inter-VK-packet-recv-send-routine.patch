@@ -1,0 +1,567 @@
+From e3c9630161eeb4be14f3c6e573821789308caa48 Mon Sep 17 00:00:00 2001
+From: lab176 <lbaier176@gmail.com>
+Date: Thu, 25 Aug 2016 10:43:30 -0400
+Subject: [PATCH 1/1] Add inter-VK packet recv/send routine Add hack for
+ ether_type bug, in ether_input() Add interrupts per VM in if_cnic.c
+
+---
+ sys/net/if_cnic.c      | 136 ++++++++++++++++++++++++++++++++++++++++---------
+ sys/net/if_ethersubr.c |  28 +++++++---
+ sys/net/pktqueue.c     |  25 +++++----
+ sys/net/pktqueue.h     |   4 +-
+ sys/netinet/ip_input.c |  46 +++++++----------
+ 5 files changed, 164 insertions(+), 75 deletions(-)
+
+diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
+index c40f23e..9050c54 100644
+--- a/sys/net/if_cnic.c
++++ b/sys/net/if_cnic.c
+@@ -22,11 +22,13 @@
+ #include <sys/kauth.h>
+ #include <sys/mutex.h>
+ #include <sys/cpu.h>
++#include <rump/dev/lib/libpci/pci_user.h>
+ 
+ #include <net/if.h>
+ #include <net/if_types.h>
+ #include <net/netisr.h>
+ #include <net/route.h>
++#include <net/if_ether.h>
+ 
+ #ifdef INET
+ #include <netinet/in.h>
+@@ -77,6 +79,13 @@ static dev_type_ioctl(cnicioctl);
+ static dev_type_poll(cnicpoll);
+ static dev_type_kqfilter(cnickqfilter);
+ 
++/* VKern functions  */
++int cnic_vk_intr_0(void * arg);
++int cnic_vk_intr_1(void * arg);
++int cnic_vk_intr_2(void * arg);
++int cnic_vk_dequeue(struct cnic_softc * ifp, int srcvm);
++
++
+ const struct cdevsw cnic_cdevsw = {
+ 	.d_open = cnicopen,
+ 	.d_close = cnicclose,
+@@ -155,7 +164,7 @@ cnic_clone_create(struct if_clone *ifc, int unit)
+ 
+ 	if ((tp = cnic_find_zunit(unit)) == NULL) {
+ 		/* Allocate a new instance */
+-		tp = malloc(sizeof(*tp), M_DEVBUF, M_WAITOK|M_ZERO);
++		tp = malloc(sizeof(*tp), m_devbuf, M_WAITOK|M_ZERO);
+ 
+ 		tp->cnic_unit = unit;
+ 		mutex_init(&tp->cnic_lock, MUTEX_DEFAULT, IPL_NET);
+@@ -189,6 +198,7 @@ cnicattach0(struct cnic_softc *tp)
+ 	ifp->if_mtu = CNICMTU;
+ 	ifp->if_ioctl = cnic_ioctl;
+ 	ifp->if_output = cnic_output;
++	ifp->if_input  = ether_input;
+ #ifdef ALTQ
+ 	ifp->if_start = cnicstart;
+ #endif
+@@ -206,6 +216,11 @@ cnicattach0(struct cnic_softc *tp)
+ 	IFQ_SET_READY(&ifp->if_snd);
+ 	if_attach(ifp);
+ 	if_alloc_sadl(ifp);
++
++	//establish irq lines for rcving
++	rumpcomp_pci_irq_establish(12, cnic_vk_intr_0, tp);
++	rumpcomp_pci_irq_establish(13, cnic_vk_intr_1, tp);
++	//rumpcomp_pci_irq_establish(15, cnic_vk_intr_0, tp);
+ 	bpf_attach(ifp, DLT_NULL, sizeof(uint32_t));
+ }
+ 
+@@ -480,6 +495,7 @@ static int
+ cnic_output(struct ifnet *ifp, struct mbuf *m0, const struct sockaddr *dst,
+     struct rtentry *rt)
+ {
++	//printf("VM%d- cnic_output\n", rump_vmid);
+ 	struct cnic_softc *tp = ifp->if_softc;
+ 	int		s;
+ 	int		error;
+@@ -499,29 +515,12 @@ cnic_output(struct ifnet *ifp, struct mbuf *m0, const struct sockaddr *dst,
+ 		error = EHOSTDOWN;
+ 		goto out;
+ 	}
+-
++	
+ 	/*
+ 	 * if the queueing discipline needs packet classification,
+ 	 * do it before prepending link headers.
+ 	 */
+ 	IFQ_CLASSIFY(&ifp->if_snd, m0, dst->sa_family, &pktattr);
+-
+-	//send to corresponding RK	
+-	struct ip *ip_send = mtod(m0, struct ip *);
+-	printf("VM%d, ip addr in cnic_output: %s\n", rump_vmid, inet_ntoa(ip_send->ip_dst));	
+-	
+-	printf("sizeof m_len: %d\n", m_length(m0));
+-	if(m0->m_next == NULL) printf("no chain\n");	
+-	
+-	char test[0]; 
+-	m_copydata(m0, 0, m_length(m0), test);
+-	
+-	mutex_exit(&tp->cnic_lock);
+-	splx(s);
+-	cos_pktq_enqueue(test, 1);
+-
+-	if(1) return 1;
+-	
+ 	
+ 	bpf_mtap_af(ifp, dst->sa_family, m0);
+ 
+@@ -563,10 +562,36 @@ cnic_output(struct ifnet *ifp, struct mbuf *m0, const struct sockaddr *dst,
+ 				goto out;
+ 			}
+ 		}
+-		/* FALLTHROUGH */
++	/* FALLTHROUGH */
+ 	case AF_UNSPEC:
+ 		
+-		IFQ_ENQUEUE(&ifp->if_snd, m0, &pktattr, error);
++		//IFQ_ENQUEUE(&ifp->if_snd, m0, &pktattr, error);
++		
++		if(!strcmp(ifp->if_xname, "cnic1")){
++			CNICDEBUG("Sending packet from DOM0 to VM1\n");
++			error = 1;	
++			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
++			m_copydata(m0, 0, m0->m_len, test);
++			cos_pktq_enqueue(test, m0->m_len, 1);	
++			m_free(m0);
++			goto out;
++		}else if(!strcmp(ifp->if_xname, "cnic2")){
++			CNICDEBUG("Sending packet from VM to VM2%d\n", rump_vmid);
++			error = 1;	
++			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
++			m_copydata(m0, 0, m0->m_len, test);
++			cos_pktq_enqueue(test, m0->m_len, 2);	
++			m_free(m0);
++			goto out;
++		}else{
++			CNICDEBUG("Sending packet from VM%d to DOM0\n", rump_vmid);
++			error = 1;	
++			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
++			m_copydata(m0, 0, m0->m_len, test);
++			cos_pktq_enqueue(test, m0->m_len, 0);	
++			m_free(m0);
++			goto out;
++		}
+ 		
+ 		if (error) {
+ 			ifp->if_collisions++;
+@@ -589,8 +614,9 @@ cnic_output(struct ifnet *ifp, struct mbuf *m0, const struct sockaddr *dst,
+ 		tp->cnic_flags &= ~CNIC_RWAIT;
+ 		wakeup((void *)tp);
+ 	}
+-	if (tp->cnic_flags & CNIC_ASYNC && tp->cnic_pgid)
++	if (tp->cnic_flags & CNIC_ASYNC && tp->cnic_pgid){
+ 		softint_schedule(tp->cnic_isih);
++	}
+ 
+ 	selnotify(&tp->cnic_rsel, 0, 0);
+ out:
+@@ -606,6 +632,7 @@ out:
+ static void
+ cnic_i_softintr(void *cookie)
+ {
++	printf("cnic_i_softintr\n");
+ 	struct cnic_softc *tp = cookie;
+ 
+ 	if (tp->cnic_flags & CNIC_ASYNC && tp->cnic_pgid)
+@@ -616,6 +643,7 @@ cnic_i_softintr(void *cookie)
+ static void
+ cnic_o_softintr(void *cookie)
+ {
++	printf("cnic_o_softintr\n");
+ 	struct cnic_softc *tp = cookie;
+ 
+ 	if (tp->cnic_flags & CNIC_ASYNC && tp->cnic_pgid)
+@@ -738,7 +766,7 @@ int
+ cnicread(dev_t dev, struct uio *uio, int ioflag)
+ {
+ 	printf("cnic read\n");
+-//	if(1) return 0;	
++	if(1) return 0;	
+ 	struct cnic_softc *tp;
+ 	struct ifnet	*ifp;
+ 	struct mbuf	*m, *m0;
+@@ -832,7 +860,7 @@ int
+ cnicwrite(dev_t dev, struct uio *uio, int ioflag)
+ {
+ 	printf("cnicwrite\n");
+-	//if(1) return 0;
++	if(1) return 0;
+ 	
+ 	struct cnic_softc *tp;
+ 	struct ifnet	*ifp;
+@@ -1124,3 +1152,63 @@ out_nolock:
+ 	splx(s);
+ 	return (rv);
+ }
++
++
++
++//For rcving from DOM0
++extern unsigned int rump_dom0_rcv;
++int 
++cnic_vk_intr_0(void * arg)
++{
++	struct cnic_softc* tp = arg;
++	cnic_vk_dequeue(tp, 0);	
++	return 1;
++}
++
++//For rcving from VM1
++int 
++cnic_vk_intr_1(void * arg)
++{
++	printf("VM0- cnic_vk_intr_1\n");
++	struct cnic_softc* tp = arg;
++//	mutex_enter(&tp->cnic_lock);
++	cnic_vk_dequeue(tp, 1);
++//	mutex_exit(&tp->cnic_lock);
++	return 1;
++}
++
++
++//For rcving from VM2
++int 
++cnic_vk_intr_2(void * arg)
++{
++	struct cnic_softc* tp = arg;
++	cnic_vk_dequeue(tp, 2);	
++	return 1;
++}
++
++int
++cnic_vk_dequeue(struct cnic_softc* tp, int srcvm)
++{
++	struct ifnet * ifp = &tp->cnic_if;
++
++	//alloc+dequeue mbuf
++	struct mbuf *m;
++	MGETHDR(m, M_NOWAIT, MT_DATA);
++	MCLGET(m, M_DONTWAIT);
++	m_copyback(m, 0, 84, cos_pktq_dequeue(srcvm));
++	assert(m != NULL);
++
++	//set mbuf ifnet to passed in arg from intr.
++	m->m_pkthdr.rcvif = ifp;
++	m->m_len = m->m_pkthdr.len = 84;
++	ifp->if_ipackets++;
++	bpf_mtap(ifp, m);
++	ifp->if_flags |= IFF_RUNNING;
++	ifp->if_flags |= IFF_UP;
++	
++	//this is ether_input.
++	(*ifp->if_input)(ifp, m);
++	return 1;
++}
++
+diff --git a/sys/net/if_ethersubr.c b/sys/net/if_ethersubr.c
+index a60eb8b..9da0efe 100644
+--- a/sys/net/if_ethersubr.c
++++ b/sys/net/if_ethersubr.c
+@@ -573,6 +573,8 @@ altq_etherclassify(struct ifaltq *ifq, struct mbuf *m,
+ }
+ #endif /* ALTQ */
+ 
++extern unsigned int rump_dom0_rcv;
++extern int rump_vmid;
+ /*
+  * Process a received Ethernet packet;
+  * the packet is in the mbuf chain m with
+@@ -581,13 +583,7 @@ altq_etherclassify(struct ifaltq *ifq, struct mbuf *m,
+ void
+ ether_input(struct ifnet *ifp, struct mbuf *m)
+ {
+-	printf("\n\n\nether_input\n");
+-	extern int rump_vmid;
+-	if(rump_vmid == 1){
+-		printf("sending back to DOM0\n");
+-		//cos_pktq_enqueue();
+-	}
+-
++	printf("VM%d- ether_input\n", rump_vmid);
+ 	struct ethercom *ec = (struct ethercom *) ifp;
+ 	pktqueue_t *pktq = NULL;
+ 	struct ifqueue *inq = NULL;
+@@ -600,6 +596,21 @@ ether_input(struct ifnet *ifp, struct mbuf *m)
+ 	struct llc *l;
+ #endif
+ 
++	//HACK HACK HACK HACK.
++	//ether_type gets modified, so just don't check it, and 
++	//decide it's an IP packet. 
++	if(rump_vmid != 0 || rump_dom0_rcv == 1){
++		pktq = ip_pktq;
++		if (__predict_true(pktq)) {
++			const uint32_t h = pktq_rps_hash(m);
++			printf("VM%d- ether_input, queing for ipintr\n", rump_vmid);
++			if (__predict_false(!pktq_enqueue(pktq, m, h))) {
++				m_freem(m);
++			}
++			rump_dom0_rcv = 0;
++			return;
++		}
++	}
+ 
+ 	if ((ifp->if_flags & IFF_UP) == 0) {
+ 		m_freem(m);
+@@ -612,7 +623,7 @@ ether_input(struct ifnet *ifp, struct mbuf *m)
+ 	eh = mtod(m, struct ether_header *);
+ 	etype = ntohs(eh->ether_type);
+ 	ehlen = sizeof(*eh);
+-
++	
+ 	if(__predict_false(earlypkts < 100 || !rnd_initial_entropy)) {
+ 		rnd_add_data(NULL, eh, ehlen, 0);
+ 		earlypkts++;
+@@ -828,6 +839,7 @@ ether_input(struct ifnet *ifp, struct mbuf *m)
+ 		m->m_flags &= ~M_HASFCS;
+ 	}
+ 
++	
+ 	if (etype > ETHERMTU + sizeof (struct ether_header)) {
+ 		/* Strip off the Ethernet header. */
+ 		m_adj(m, ehlen);
+diff --git a/sys/net/pktqueue.c b/sys/net/pktqueue.c
+index 9200742..6039748 100644
+--- a/sys/net/pktqueue.c
++++ b/sys/net/pktqueue.c
+@@ -107,6 +107,7 @@ pktq_create(size_t maxlen, void (*intrh)(void *), void *sc)
+ 	if ((pc = percpu_alloc(sizeof(pktq_counters_t))) == NULL) {
+ 		return NULL;
+ 	}
++	
+ 	if ((sih = softint_establish(sflags, intrh, sc)) == NULL) {
+ 		percpu_free(pc, sizeof(pktq_counters_t));
+ 		return NULL;
+@@ -206,14 +207,16 @@ pktq_rps_hash(const struct mbuf *m __unused)
+  */
+ 
+ bool
+-cos_pktq_enqueue(void *buff, int to_vmid)
++cos_pktq_enqueue(void *buff, int size, int to_vmid)
+ {
++	//printf("cos_pktq_enqueue\n");
+ 	KASSERT(kpreempt_disabled());
+-	
++
+ 	//assume VMs can only send to/recv from DOM0
+ 	if(to_vmid != 0) assert(rump_vmid == 0);
+ 
+-	if(!rump_shmem_write(buff, 84, rump_vmid, to_vmid)){
++
++	if(!rump_shmem_write(buff, size, rump_vmid, to_vmid)){
+ 		return false;
+ 	}
+ 	
+@@ -247,20 +250,16 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
+  */
+ 
+ void *
+-cos_pktq_dequeue()
++cos_pktq_dequeue(int srcvm)
+ {
+-	printf("cos_pktq_dequeue\n");
+-	void * m;
+-
+-	if(!rump_shmem_read(&m, 0, 1)){
++	void *test = malloc(84, 0, M_NOWAIT);
++	
++	if(rump_shmem_read(test, srcvm, rump_vmid) == NULL){
+ 		printf("cos_pktq_dequeue failed\n");
+ 		return NULL;
+ 	}
+-		
+-	assert(m != NULL);	
+-	//assert(!ip_reass_packet(&m, ip_recv);
+-
+-	return m;	
++	
++	return test;	
+ }
+ 
+ struct mbuf *
+diff --git a/sys/net/pktqueue.h b/sys/net/pktqueue.h
+index 12382d3..c916014 100644
+--- a/sys/net/pktqueue.h
++++ b/sys/net/pktqueue.h
+@@ -48,9 +48,9 @@ pktqueue_t *	pktq_create(size_t, void (*)(void *), void *);
+ void		pktq_destroy(pktqueue_t *);
+ 
+ bool		pktq_enqueue(pktqueue_t *, struct mbuf *, const u_int);
+-bool		cos_pktq_enqueue(void * buff, int to_vmid);
++bool		cos_pktq_enqueue(void * buff, int size, int to_vmid);
+ struct mbuf *	pktq_dequeue(pktqueue_t *);
+-void *	cos_pktq_dequeue(void);
++void *		cos_pktq_dequeue(int srcvm);
+ void		pktq_barrier(pktqueue_t *);
+ void		pktq_flush(pktqueue_t *);
+ int		pktq_set_maxlen(pktqueue_t *, size_t);
+diff --git a/sys/netinet/ip_input.c b/sys/netinet/ip_input.c
+index d2aff93..6f9d60e 100644
+--- a/sys/netinet/ip_input.c
++++ b/sys/netinet/ip_input.c
+@@ -338,24 +338,7 @@ ip_init(void)
+ 	ipstat_percpu = percpu_alloc(sizeof(uint64_t) * IP_NSTATS);
+ }
+ 
+-#include "ip_input.h"
+ extern int rump_vmid;
+-int
+-vk_ipintr(void * unused){
+-	printf("\nRK:%d, recieved packet.\n", rump_vmid);
+-	struct mbuf *m;
+-	//struct ip * ip_recv;
+-
+-	mutex_enter(softnet_lock);
+-	if((m = (struct mbuf *)cos_pktq_dequeue()) != NULL) {
+-		//printf("ip->recv: %s\n", inet_ntoa(ip_recv->ip_dst));
+-		//MGET(m, M_NOWAIT, MT_DATA);
+-		assert(m != NULL);
+-		ip_input(m);
+-	}
+-	mutex_exit(softnet_lock);
+-	return 1;
+-}
+ 
+ /*
+  * IP software interrupt routine.
+@@ -364,12 +347,10 @@ void
+ ipintr(void *arg __unused)
+ {
+ 	struct mbuf *m;
+-
+ 	KASSERT(cpu_softintr_p());
+ 
+ 	mutex_enter(softnet_lock);
+ 	while ((m = pktq_dequeue(ip_pktq)) != NULL) {
+-		printf("ipintr: %d\n", m->m_type);
+ 		ip_input(m);
+ 	}
+ 	mutex_exit(softnet_lock);
+@@ -382,6 +363,7 @@ ipintr(void *arg __unused)
+ static void
+ ip_input(struct mbuf *m)
+ {
++	printf("VM%d- ip_input\n", rump_vmid);	
+ 	struct ip *ip = NULL;
+ 	struct in_ifaddr *ia;
+ 	struct ifaddr *ifa;
+@@ -391,11 +373,12 @@ ip_input(struct mbuf *m)
+ 	int srcrt = 0;
+ 	ifnet_t *ifp;
+ 
+-	//KASSERTMSG(cpu_softintr_p(), "ip_input: not in the software "
+-	 //   "interrupt handler; synchronization assumptions violated");
++	KASSERTMSG(cpu_softintr_p(), "ip_input: not in the software "
++	    "interrupt handler; synchronization assumptions violated");
+ 	MCLAIM(m, &ip_rx_mowner);
+ 	KASSERT((m->m_flags & M_PKTHDR) != 0);
+ 	ifp = m->m_pkthdr.rcvif;
++	
+ 	/*
+ 	 * If no IP addresses have been set yet but the interfaces
+ 	 * are receiving, can't do anything with incoming packets yet.
+@@ -404,6 +387,7 @@ ip_input(struct mbuf *m)
+ 	if (!TAILQ_FIRST(&in_ifaddrhead)) {
+ 		goto bad;
+ 	}
++	
+ 	IP_STATINC(IP_STAT_TOTAL);
+ 	/*
+ 	 * If the IP header is not aligned, slurp it up into a new
+@@ -424,13 +408,15 @@ ip_input(struct mbuf *m)
+ 			return;
+ 		}
+ 	}
++	
+ 	ip = mtod(m, struct ip *);
+-	//printf("VM%d, ip addr in ip_input: %s\n", rump_vmid, inet_ntoa(ip->ip_dst));	
++	
++	//printf("VM%d- ip_dst addr: %s\n",rump_vmid, inet_ntoa(ip->ip_dst));	
+ 	if (ip->ip_v != IPVERSION) {
+ 		IP_STATINC(IP_STAT_BADVERS);
+-		printf("ip_input: %d\n", __LINE__);
+ 		goto bad;
+ 	}
++	
+ 	hlen = ip->ip_hl << 2;
+ 	if (hlen < sizeof(struct ip)) {	/* minimum header length */
+ 		IP_STATINC(IP_STAT_BADHLEN);
+@@ -460,7 +446,7 @@ ip_input(struct mbuf *m)
+ 			goto bad;
+ 		}
+ 	}
+-
++	
+ 	switch (m->m_pkthdr.csum_flags &
+ 		((ifp->if_csum_flags_rx & M_CSUM_IPv4) |
+ 		 M_CSUM_IPv4_BAD)) {
+@@ -489,7 +475,7 @@ ip_input(struct mbuf *m)
+ 
+ 	/* Retrieve the packet length. */
+ 	len = ntohs(ip->ip_len);
+-
++	
+ 	/*
+ 	 * Check for additional length bogosity
+ 	 */
+@@ -613,7 +599,6 @@ ip_input(struct mbuf *m)
+ 	 * The behavior here is to treat addresses on !IFF_UP interface
+ 	 * or IN_IFF_NOTREADY addresses as not mine.
+ 	 */
+-	//printf("ip addr perhaps in ip_input: %d\n", ia->ia_addr.sin_addr);
+ 	downmatch = 0;
+ 	LIST_FOREACH(ia, &IN_IFADDR_HASH(ip->ip_dst.s_addr), ia_hash) {
+ 		if (in_hosteq(ia->ia_addr.sin_addr, ip->ip_dst)) {
+@@ -627,8 +612,10 @@ ip_input(struct mbuf *m)
+ 				downmatch++;
+ 		}
+ 	}
++	
+ 	if (ia != NULL)
+ 		goto ours;
++	
+ 	if (ifp->if_flags & IFF_BROADCAST) {
+ 		IFADDR_FOREACH(ifa, ifp) {
+ 			if (ifa->ifa_addr->sa_family != AF_INET)
+@@ -796,10 +783,12 @@ ours:
+ 	SOFTNET_UNLOCK();
+ 	return;
+ bad:
++	printf("VM%d- ip_input bad packet\n", rump_vmid);
+ 	m_freem(m);
+ 	return;
+ 
+ badcsum:
++	printf("bad checksum\n");	
+ 	IP_STATINC(IP_STAT_BADSUM);
+ 	m_freem(m);
+ }
+@@ -1054,6 +1043,7 @@ ip_dooptions(struct mbuf *m)
+ 			code = ICMP_UNREACH_SRCFAIL;
+ 			goto bad;
+ 		}
++		printf("ip_input calling ip_forward %d\n", __LINE__);
+ 		ip_forward(m, 1);
+ 		return true;
+ 	}
+@@ -1288,8 +1278,8 @@ ip_forward(struct mbuf *m, int srcrt)
+ 			code = ICMP_REDIRECT_HOST;
+ 		}
+ 	}
+-	//printf("ip addr: %s\n", inet_ntoa(ip->ip_dst));
+-	printf("output packet to wire/net stack\n");
++
++	if(rump_vmid == 1) printf("VM%d- ip_forward\n", rump_vmid);	
+ 	error = ip_output(m, NULL, &ipforward_rt,
+ 	    (IP_FORWARDING | (ip_directedbcast ? IP_ALLOWBROADCAST : 0)),
+ 	    NULL, NULL);
+-- 
+1.9.1
+

@@ -25,6 +25,4 @@ int paws_tests(void);
 
 void printdirs(char []);
 
-int cnic_create(int num, char *addr, char *netmask);
-
 #endif /* PAWS_H */

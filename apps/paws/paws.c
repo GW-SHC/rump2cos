@@ -6,14 +6,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include "../../rumprun/src-netbsd/sys/net/if_cnic.h"
 #include <net/if.h>
 #include <net/route.h>
 #include <netinet/in.h>
 #include <netconfig.h>
 #include <errno.h>
 #include <fcntl.h>
-#include "include/if_cnic.h"
-
 extern int vmid;
 
 int rumpns_rtinit(struct ifaddr *, int, int);
@@ -74,9 +73,8 @@ set_gw(char *addr)
 	return rv;
 }
 
-static int
-cnic_create(int num, char *addr, char *netmask)
-{
+int
+cnic_create(int num, char *addr, char *netmask){
 
 	int rv, fd;
 	int i;
@@ -84,8 +82,8 @@ cnic_create(int num, char *addr, char *netmask)
 	char cnic_dev[11];
 	char cnic[6];
 
-	if(!vmid) printf("\ncreating cnic%d for DOM0\n", num);
-	else printf("\ncreating cnic%d for VM%d\n", num, vmid);
+	if(!vmid) printf("creating cnic%d for DOM0\n", num);
+	else printf("creating cnic%d for VM%d\n", num, vmid);
 
 	sprintf(cnic, "cnic%d", num);
 	printf("%s\n", cnic);
@@ -144,9 +142,10 @@ main(void)
 	} else {
 	        fd  = cnic_create(3, "111.111.111.1", "255.255.255.0");	
 		printf("creating VM%d\n", vmid);
+	        fd  = cnic_create(1, "111.111.111.1", "255.255.255.0");	
 	}
 
-	printf("Blocking lwp thread indefinitly\nDone\n");
+	printf("Done\nBlocking lwp thread indefinitly\n");
 	bmk_sched_blockprepare();
 	bmk_sched_block();
 	assert(0);

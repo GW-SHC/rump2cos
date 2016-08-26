@@ -5,7 +5,7 @@ LIBS = paws
 main : backing tools/backing.o all
 
 backing :
-	rm -f ./tools/backing.o
+	rm ./tools/backing.o
 	cd ../../rumprun/platform/cos; make clean;
 
 tools/backing.o :

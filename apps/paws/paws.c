@@ -139,10 +139,10 @@ main(void)
 		printf("----- dom0 -----\n");
 	        fd  = cnic_create(1, "111.111.111.0", "255.255.255.0");	
 	        fd2 = cnic_create(2, "222.222.222.0", "255.255.255.0");	
-	} else {
+	} else if(vmid == 1){
 	        fd  = cnic_create(3, "111.111.111.1", "255.255.255.0");	
-		printf("creating VM%d\n", vmid);
-	        fd  = cnic_create(1, "111.111.111.1", "255.255.255.0");	
+	}else if(vmid == 2){
+	        fd2 = cnic_create(4, "222.222.222.1", "255.255.255.0");	
 	}
 
 	printf("Done\nBlocking lwp thread indefinitly\n");

@@ -1,7 +1,7 @@
 From 485b20c4ab4f862e6b1a752aae1c41c08041ef07 Mon Sep 17 00:00:00 2001
 From: Robert Gifford <robertgif@gmail.com>
 Date: Fri, 10 Jun 2016 16:45:59 -0400
-Subject: [PATCH 1/7] Added tun support
+Subject: [PATCH 1/8] Added tun support
 
 ---
  sys/rump/net/lib/libtap/Makefile        |  2 ++
@@ -96,7 +96,7 @@ index 6d9a1f5..6672fe6 100644
 From f48af3ecc3f003838ccbef7e1339c6c4d13a475d Mon Sep 17 00:00:00 2001
 From: lab176 <lbaier176@gmail.com>
 Date: Tue, 28 Jun 2016 15:20:26 -0400
-Subject: [PATCH 2/7] patch merge
+Subject: [PATCH 2/8] patch merge
 
 ---
  sys/net/if_cnic.c                       | 1098 +++++++++++++++++++++++++++++++
@@ -1333,7 +1333,7 @@ index 6672fe6..457e249 100644
 From c89ecab41358b2b129aa68edbf268eb7e20aa1ac Mon Sep 17 00:00:00 2001
 From: lab176 <lbaier176@gmail.com>
 Date: Thu, 30 Jun 2016 11:53:35 -0400
-Subject: [PATCH 3/7] pulling phani's changes
+Subject: [PATCH 3/8] pulling phani's changes
 
 ---
  add_tun.patch                    |   94 +++
@@ -2723,7 +2723,7 @@ index 22dc71f..3f8bc8d 100644
 From 46338f28e83cd78f22714dcbbef7c98d6f0e5a5b Mon Sep 17 00:00:00 2001
 From: lab176 <lbaier176@gmail.com>
 Date: Fri, 29 Jul 2016 11:51:12 -0400
-Subject: [PATCH 4/7] Temporary commit to pull changes which will fix locking
+Subject: [PATCH 4/8] Temporary commit to pull changes which will fix locking
  problem during ping/boot.
 
 ---
@@ -349122,7 +349122,7 @@ index 457e249..f0b4559 100644
 From a70d8a946dd6ed487aaece756567820c293bf482 Mon Sep 17 00:00:00 2001
 From: lab176 <lbaier176@gmail.com>
 Date: Thu, 11 Aug 2016 13:25:10 -0400
-Subject: [PATCH 5/7] "temp commmit to merge Robbie's code for correct inter RK
+Subject: [PATCH 5/8] "temp commmit to merge Robbie's code for correct inter RK
  routing"
 
 ---
@@ -349544,7 +349544,7 @@ index 36f9ad1..0c81162 100644
 From e3c9630161eeb4be14f3c6e573821789308caa48 Mon Sep 17 00:00:00 2001
 From: lab176 <lbaier176@gmail.com>
 Date: Thu, 25 Aug 2016 10:43:30 -0400
-Subject: [PATCH 6/7] Add inter-VK packet recv/send routine Add hack for
+Subject: [PATCH 6/8] Add inter-VK packet recv/send routine Add hack for
  ether_type bug, in ether_input() Add interrupts per VM in if_cnic.c
 
 ---
@@ -350112,7 +350112,7 @@ index d2aff93..6f9d60e 100644
 From 0b90cefef57e903b96db18ee9f4acceb1379e50e Mon Sep 17 00:00:00 2001
 From: lab176 <lbaier176@gmail.com>
 Date: Tue, 30 Aug 2016 09:52:15 -0400
-Subject: [PATCH 7/7] Cleaned up working tree for patch file
+Subject: [PATCH 7/8] Cleaned up working tree for patch file
 
 ---
  add_tun.patch                      |   94 ---
@@ -353879,6 +353879,228 @@ index a683f88..214dcba 100644
  
  void *rumpcomp_pci_map(unsigned long, unsigned long);
  int rumpcomp_pci_confread(unsigned, unsigned, unsigned, int, unsigned int *);
+-- 
+1.9.1
+
+
+From 79c1c283fb919d2c68269002c0281453790f189a Mon Sep 17 00:00:00 2001
+From: lab176 <lbaier176@gmail.com>
+Date: Wed, 31 Aug 2016 17:49:35 -0400
+Subject: [PATCH 8/8] -Remove arp hack + fix isr bug.
+
+Commented out the arp hack in ether_input().
+Added logic for cnic isr line instances in if_cnic.c
+---
+ sys/dev/pci/if_wm.c    |  2 +-
+ sys/dev/pci/virtio.c   |  1 -
+ sys/net/if_cnic.c      | 32 ++++++++++++++++++++------------
+ sys/net/if_ethersubr.c | 12 ++++++++----
+ sys/netinet/ip_input.c |  4 ++--
+ 5 files changed, 31 insertions(+), 20 deletions(-)
+
+diff --git a/sys/dev/pci/if_wm.c b/sys/dev/pci/if_wm.c
+index a3cd669..9d1bfd4 100644
+--- a/sys/dev/pci/if_wm.c
++++ b/sys/dev/pci/if_wm.c
+@@ -591,8 +591,8 @@ static int	wm_nq_tx_offload(struct wm_softc *, struct wm_txsoft *,
+     uint32_t *, uint32_t *, bool *);
+ static void	wm_nq_start(struct ifnet *);
+ static void	wm_nq_start_locked(struct ifnet *);
++
+ /* Interrupt */
+-#include "if_wm.h"
+ static void	wm_txintr(struct wm_softc *);
+ static void	wm_rxintr(struct wm_softc *);
+ static void	wm_linkintr_gmii(struct wm_softc *, uint32_t);
+diff --git a/sys/dev/pci/virtio.c b/sys/dev/pci/virtio.c
+index d573c54..6e12197 100644
+--- a/sys/dev/pci/virtio.c
++++ b/sys/dev/pci/virtio.c
+@@ -36,7 +36,6 @@ __KERNEL_RCSID(0, "$NetBSD: virtio.c,v 1.9 2015/05/05 10:58:35 ozaki-r Exp $");
+ #include <sys/device.h>
+ #include <sys/kmem.h>
+ #include <net/pktqueue.h>
+-#include <dev/pci/if_wm.h>
+ #include <dev/pci/pcidevs.h>
+ #include <dev/pci/pcireg.h>
+ #include <dev/pci/pcivar.h>
+diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
+index 9050c54..50b59a6 100644
+--- a/sys/net/if_cnic.c
++++ b/sys/net/if_cnic.c
+@@ -218,9 +218,14 @@ cnicattach0(struct cnic_softc *tp)
+ 	if_alloc_sadl(ifp);
+ 
+ 	//establish irq lines for rcving
+-	rumpcomp_pci_irq_establish(12, cnic_vk_intr_0, tp);
+-	rumpcomp_pci_irq_establish(13, cnic_vk_intr_1, tp);
+-	//rumpcomp_pci_irq_establish(15, cnic_vk_intr_0, tp);
++	if(!strcmp(ifp->if_xname, "cnic1")) 
++		rumpcomp_pci_irq_establish(13, cnic_vk_intr_1, tp);
++
++	if(!strcmp(ifp->if_xname, "cnic2")) 
++		rumpcomp_pci_irq_establish(15, cnic_vk_intr_2, tp);
++	else 
++		rumpcomp_pci_irq_establish(12, cnic_vk_intr_0, tp);
++	
+ 	bpf_attach(ifp, DLT_NULL, sizeof(uint32_t));
+ }
+ 
+@@ -568,7 +573,7 @@ cnic_output(struct ifnet *ifp, struct mbuf *m0, const struct sockaddr *dst,
+ 		//IFQ_ENQUEUE(&ifp->if_snd, m0, &pktattr, error);
+ 		
+ 		if(!strcmp(ifp->if_xname, "cnic1")){
+-			CNICDEBUG("Sending packet from DOM0 to VM1\n");
++			//CNICDEBUG("Sending packet from DOM0 to VM1\n");
+ 			error = 1;	
+ 			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
+ 			m_copydata(m0, 0, m0->m_len, test);
+@@ -576,7 +581,7 @@ cnic_output(struct ifnet *ifp, struct mbuf *m0, const struct sockaddr *dst,
+ 			m_free(m0);
+ 			goto out;
+ 		}else if(!strcmp(ifp->if_xname, "cnic2")){
+-			CNICDEBUG("Sending packet from VM to VM2%d\n", rump_vmid);
++			//CNICDEBUG("Sending packet from DOM0 to VM2\n");
+ 			error = 1;	
+ 			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
+ 			m_copydata(m0, 0, m0->m_len, test);
+@@ -584,7 +589,7 @@ cnic_output(struct ifnet *ifp, struct mbuf *m0, const struct sockaddr *dst,
+ 			m_free(m0);
+ 			goto out;
+ 		}else{
+-			CNICDEBUG("Sending packet from VM%d to DOM0\n", rump_vmid);
++			//CNICDEBUG("Sending packet from VM%d to DOM0\n", rump_vmid);
+ 			error = 1;	
+ 			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
+ 			m_copydata(m0, 0, m0->m_len, test);
+@@ -632,7 +637,6 @@ out:
+ static void
+ cnic_i_softintr(void *cookie)
+ {
+-	printf("cnic_i_softintr\n");
+ 	struct cnic_softc *tp = cookie;
+ 
+ 	if (tp->cnic_flags & CNIC_ASYNC && tp->cnic_pgid)
+@@ -643,7 +647,6 @@ cnic_i_softintr(void *cookie)
+ static void
+ cnic_o_softintr(void *cookie)
+ {
+-	printf("cnic_o_softintr\n");
+ 	struct cnic_softc *tp = cookie;
+ 
+ 	if (tp->cnic_flags & CNIC_ASYNC && tp->cnic_pgid)
+@@ -1160,6 +1163,7 @@ extern unsigned int rump_dom0_rcv;
+ int 
+ cnic_vk_intr_0(void * arg)
+ {
++//	printf("VM%d- cnic_vk_intr_0\n", rump_vmid);
+ 	struct cnic_softc* tp = arg;
+ 	cnic_vk_dequeue(tp, 0);	
+ 	return 1;
+@@ -1169,11 +1173,8 @@ cnic_vk_intr_0(void * arg)
+ int 
+ cnic_vk_intr_1(void * arg)
+ {
+-	printf("VM0- cnic_vk_intr_1\n");
+ 	struct cnic_softc* tp = arg;
+-//	mutex_enter(&tp->cnic_lock);
+ 	cnic_vk_dequeue(tp, 1);
+-//	mutex_exit(&tp->cnic_lock);
+ 	return 1;
+ }
+ 
+@@ -1182,6 +1183,7 @@ cnic_vk_intr_1(void * arg)
+ int 
+ cnic_vk_intr_2(void * arg)
+ {
++	//printf("VM2- cnic_vk_intr_2\n");
+ 	struct cnic_softc* tp = arg;
+ 	cnic_vk_dequeue(tp, 2);	
+ 	return 1;
+@@ -1196,7 +1198,13 @@ cnic_vk_dequeue(struct cnic_softc* tp, int srcvm)
+ 	struct mbuf *m;
+ 	MGETHDR(m, M_NOWAIT, MT_DATA);
+ 	MCLGET(m, M_DONTWAIT);
+-	m_copyback(m, 0, 84, cos_pktq_dequeue(srcvm));
++	void * pktdata = cos_pktq_dequeue(srcvm);
++	if(pktdata == NULL){
++		assert(0);
++		return 0;
++	}
++	else m_copyback(m, 0, 84, pktdata);
++	
+ 	assert(m != NULL);
+ 
+ 	//set mbuf ifnet to passed in arg from intr.
+diff --git a/sys/net/if_ethersubr.c b/sys/net/if_ethersubr.c
+index 9da0efe..eabb6a7 100644
+--- a/sys/net/if_ethersubr.c
++++ b/sys/net/if_ethersubr.c
+@@ -583,7 +583,7 @@ extern int rump_vmid;
+ void
+ ether_input(struct ifnet *ifp, struct mbuf *m)
+ {
+-	printf("VM%d- ether_input\n", rump_vmid);
++//	printf("VM%d- ether_input\n", rump_vmid);
+ 	struct ethercom *ec = (struct ethercom *) ifp;
+ 	pktqueue_t *pktq = NULL;
+ 	struct ifqueue *inq = NULL;
+@@ -599,11 +599,10 @@ ether_input(struct ifnet *ifp, struct mbuf *m)
+ 	//HACK HACK HACK HACK.
+ 	//ether_type gets modified, so just don't check it, and 
+ 	//decide it's an IP packet. 
+-	if(rump_vmid != 0 || rump_dom0_rcv == 1){
++/*	if(rump_vmid != 0 || rump_dom0_rcv == 1){
+ 		pktq = ip_pktq;
+ 		if (__predict_true(pktq)) {
+ 			const uint32_t h = pktq_rps_hash(m);
+-			printf("VM%d- ether_input, queing for ipintr\n", rump_vmid);
+ 			if (__predict_false(!pktq_enqueue(pktq, m, h))) {
+ 				m_freem(m);
+ 			}
+@@ -611,6 +610,9 @@ ether_input(struct ifnet *ifp, struct mbuf *m)
+ 			return;
+ 		}
+ 	}
++*/
++
++
+ 
+ 	if ((ifp->if_flags & IFF_UP) == 0) {
+ 		m_freem(m);
+@@ -623,7 +625,9 @@ ether_input(struct ifnet *ifp, struct mbuf *m)
+ 	eh = mtod(m, struct ether_header *);
+ 	etype = ntohs(eh->ether_type);
+ 	ehlen = sizeof(*eh);
+-	
++
++	printf("VM%d- ether_input, etype: %d\n", rump_vmid, etype);
++
+ 	if(__predict_false(earlypkts < 100 || !rnd_initial_entropy)) {
+ 		rnd_add_data(NULL, eh, ehlen, 0);
+ 		earlypkts++;
+diff --git a/sys/netinet/ip_input.c b/sys/netinet/ip_input.c
+index 6f9d60e..af50bec 100644
+--- a/sys/netinet/ip_input.c
++++ b/sys/netinet/ip_input.c
+@@ -303,7 +303,7 @@ ip_init(void)
+ 	
+ 	pr = pffindproto(PF_INET, IPPROTO_RAW, SOCK_RAW);
+ 	KASSERT(pr != NULL);
+-	
++
+ 	ip_pktq = pktq_create(IFQ_MAXLEN, ipintr, NULL);
+ 	KASSERT(ip_pktq != NULL);
+ 
+@@ -363,7 +363,7 @@ ipintr(void *arg __unused)
+ static void
+ ip_input(struct mbuf *m)
+ {
+-	printf("VM%d- ip_input\n", rump_vmid);	
++//	printf("VM%d- ip_input\n", rump_vmid);	
+ 	struct ip *ip = NULL;
+ 	struct in_ifaddr *ia;
+ 	struct ifaddr *ifa;
 -- 
 1.9.1
 

@@ -104,11 +104,8 @@ cnic_create(int num, char *addr, char *netmask){
 	else printf("ipv4 set address: fail %d\n", rv);
 
 	/* We assume that this gateway route is for range of [addr, 255.255.255.0] */
-//	if(vmid == 0) rv = set_gw(addr);
-//	else rv = rump_pub_netconfig_ipv4_gw(addr);
-
-	if(vmid == 0) set_gw(addr);
-	else rump_pub_netconfig_ipv4_gw(addr);
+	if(vmid == 0) rv = set_gw(addr);
+	else rv = rump_pub_netconfig_ipv4_gw(addr);
 
 	if(!rv) printf("ipv4 set gw: success\n");
 	else printf("ipv4 set gw: fail %d\n", rv);
@@ -137,12 +134,18 @@ main(void)
 
 	if(vmid == 0) {
 		printf("----- dom0 -----\n");
-	        fd  = cnic_create(1, "111.111.111.0", "255.255.255.0");	
-	        fd2 = cnic_create(2, "222.222.222.0", "255.255.255.0");	
+	        fd = cnic_create(1, "111.111.111.0", "255.255.255.0");	
+		assert(fd);
+	        fd = cnic_create(2, "222.222.222.0", "255.255.255.0");	
+		assert(fd);
 	} else if(vmid == 1){
+		printf("----- VM%d -----\n", vmid);
 	        fd  = cnic_create(3, "111.111.111.1", "255.255.255.0");	
+		assert(fd);
 	}else if(vmid == 2){
+		printf("----- VM%d -----\n", vmid);
 	        fd2 = cnic_create(3, "222.222.222.1", "255.255.255.0");	
+		assert(fd);
 	}
 
 	printf("Done\nBlocking lwp thread indefinitly\n");

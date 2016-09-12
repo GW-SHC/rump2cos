@@ -142,7 +142,7 @@ main(void)
 	} else if(vmid == 1){
 	        fd  = cnic_create(3, "111.111.111.1", "255.255.255.0");	
 	}else if(vmid == 2){
-	        fd2 = cnic_create(4, "222.222.222.1", "255.255.255.0");	
+	        fd2 = cnic_create(3, "222.222.222.1", "255.255.255.0");	
 	}
 
 	printf("Done\nBlocking lwp thread indefinitly\n");

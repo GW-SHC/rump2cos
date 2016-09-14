@@ -145,7 +145,7 @@ main(void)
 	}else if(vmid == 2){
 		printf("----- VM%d -----\n", vmid);
 	        fd2 = cnic_create(3, "222.222.222.1", "255.255.255.0");	
-		assert(fd);
+		assert(fd2);
 	}
 
 	printf("Done\nBlocking lwp thread indefinitly\n");

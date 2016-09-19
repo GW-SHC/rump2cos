@@ -1,7 +1,7 @@
-From 2c12f6376b26de492e78b82241d5525145b2c630 Mon Sep 17 00:00:00 2001
-From: Robert Gifford <robertgif@gmail.com>
-Date: Wed, 14 Sep 2016 11:26:52 -0400
-Subject: [PATCH] Commit for full.patch
+From dddc53c9bfb37be7ddcaf3dcaf1fd1fb34b161a6 Mon Sep 17 00:00:00 2001
+From: lab176 <lbaier176@gmail.com>
+Date: Sun, 18 Sep 2016 23:31:18 -0400
+Subject: [PATCH] Fix malloc in cnic_vk_dequeue
 
 ---
  sys/dev/pci/if_lmc.c                    |    2 +
@@ -14,15 +14,15 @@ Subject: [PATCH] Commit for full.patch
  sys/net/Makefile                        |    4 +-
  sys/net/if.c                            |    3 +-
  sys/net/if_bridge.c                     |    3 +-
- sys/net/if_cnic.c                       | 1234 +++++++++++++++++++++++++++++++
+ sys/net/if_cnic.c                       | 1233 +++++++++++++++++++++++++++++++
  sys/net/if_cnic.h                       |   44 ++
  sys/net/if_ethersubr.c                  |    8 +-
  sys/net/if_tap.c                        |    1 +
- sys/net/pktqueue.c                      |   42 +-
+ sys/net/pktqueue.c                      |   43 +-
  sys/net/pktqueue.h                      |    2 +
  sys/net/route.c                         |    1 +
  sys/netinet/ip_icmp.c                   |   12 +-
- sys/netinet/ip_input.c                  |   32 +-
+ sys/netinet/ip_input.c                  |   30 +-
  sys/netinet/ip_output.c                 |   14 +-
  sys/netinet/ip_reass.c                  |    1 +
  sys/netinet/raw_ip.c                    |    2 +
@@ -30,7 +30,7 @@ Subject: [PATCH] Commit for full.patch
  sys/rump/librump/rumpkern/rump.c        |    4 +-
  sys/rump/net/lib/libtap/Makefile        |    2 +
  sys/rump/net/lib/libtap/tap_component.c |   45 +-
- 26 files changed, 1453 insertions(+), 54 deletions(-)
+ 26 files changed, 1451 insertions(+), 54 deletions(-)
  create mode 100644 sys/net/if_cnic.c
  create mode 100644 sys/net/if_cnic.h
 
@@ -354,10 +354,10 @@ index a37777f..edfcf80 100644
  		ether_input(ifp, m);
 diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
 new file mode 100644
-index 0000000..6b1915d
+index 0000000..c7e287e
 --- /dev/null
 +++ b/sys/net/if_cnic.c
-@@ -0,0 +1,1234 @@
+@@ -0,0 +1,1233 @@
 +/* All rights go the NetBSD, this is simply a copy of if_tun.c with tun namespace replaced with cnic */
 +
 +#include <sys/cdefs.h>
@@ -1568,11 +1568,8 @@ index 0000000..6b1915d
 +	MGETHDR(m, M_NOWAIT, MT_DATA);
 +	MCLGET(m, M_DONTWAIT);
 +	void * pktdata = cos_pktq_dequeue(srcvm);
-+	if(pktdata == NULL){
-+		assert(0);
-+		return 0;
-+	}
-+	else m_copyback(m, 0, 84, pktdata);
++	assert(pktdata);
++	m_copyback(m, 0, 84, pktdata);
 +	
 +	assert(m != NULL);
 +
@@ -1586,6 +1583,8 @@ index 0000000..6b1915d
 +	
 +	/* Pass it off to a function that can get the packet into the networking stack */
 +	(*ifp->if_input)(ifp, m);
++	free(pktdata, M_DEVBUF);
++	
 +	return 1;
 +}
 +
@@ -1709,7 +1708,7 @@ index fd979e8..65a5d4d 100644
  
  	tap_start(ifp);
 diff --git a/sys/net/pktqueue.c b/sys/net/pktqueue.c
-index cf3f96d..3641f9d 100644
+index cf3f96d..7844619 100644
 --- a/sys/net/pktqueue.c
 +++ b/sys/net/pktqueue.c
 @@ -48,9 +48,9 @@ __KERNEL_RCSID(0, "$NetBSD: pktqueue.c,v 1.8 2014/07/04 01:50:22 ozaki-r Exp $")
@@ -1772,7 +1771,7 @@ index cf3f96d..3641f9d 100644
  	KASSERT(kpreempt_disabled());
  
  	if (__predict_false(!pcq_put(pq->pq_queue[cpuid], m))) {
-@@ -231,16 +247,30 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
+@@ -231,16 +247,31 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
   * => Must be called with preemption disabled.
   * => Must ensure there are not concurrent dequeue calls.
   */
@@ -1781,7 +1780,8 @@ index cf3f96d..3641f9d 100644
 +cos_pktq_dequeue(int srcvm)
 +{
 +	void *test = malloc(84, 0, M_NOWAIT);
-+	
++	assert(test);
++
 +	if(rump_shmem_read(test, srcvm, rump_vmid) == NULL){
 +		printf("cos_pktq_dequeue failed\n");
 +		return NULL;
@@ -1895,20 +1895,18 @@ index 3531ce2..20b3da3 100644
  }
  
 diff --git a/sys/netinet/ip_input.c b/sys/netinet/ip_input.c
-index b6200ce..054da87 100644
+index b6200ce..a4a5cad 100644
 --- a/sys/netinet/ip_input.c
 +++ b/sys/netinet/ip_input.c
-@@ -135,6 +135,9 @@ __KERNEL_RCSID(0, "$NetBSD: ip_input.c,v 1.322 2015/05/02 20:22:12 joerg Exp $")
+@@ -135,6 +135,7 @@ __KERNEL_RCSID(0, "$NetBSD: ip_input.c,v 1.322 2015/05/02 20:22:12 joerg Exp $")
  #include <netinet/in_gif.h>
  #include "gif.h"
  #include <net/if_gre.h>
 +
-+#include "/home/hobbes/rump2cos/rumprun/src-netbsd/sys/net/if_ether.h" 
-+
  #include "gre.h"
  
  #ifdef MROUTING
-@@ -297,10 +300,10 @@ void
+@@ -297,10 +298,10 @@ void
  ip_init(void)
  {
  	const struct protosw *pr;
@@ -1921,7 +1919,7 @@ index b6200ce..054da87 100644
  	pr = pffindproto(PF_INET, IPPROTO_RAW, SOCK_RAW);
  	KASSERT(pr != NULL);
  
-@@ -338,14 +341,15 @@ ip_init(void)
+@@ -338,14 +339,15 @@ ip_init(void)
  	ipstat_percpu = percpu_alloc(sizeof(uint64_t) * IP_NSTATS);
  }
  
@@ -1939,7 +1937,7 @@ index b6200ce..054da87 100644
  	KASSERT(cpu_softintr_p());
  
  	mutex_enter(softnet_lock);
-@@ -373,11 +377,10 @@ ip_input(struct mbuf *m)
+@@ -373,11 +375,10 @@ ip_input(struct mbuf *m)
  
  	KASSERTMSG(cpu_softintr_p(), "ip_input: not in the software "
  	    "interrupt handler; synchronization assumptions violated");
@@ -1952,7 +1950,7 @@ index b6200ce..054da87 100644
  	/*
  	 * If no IP addresses have been set yet but the interfaces
  	 * are receiving, can't do anything with incoming packets yet.
-@@ -386,8 +389,8 @@ ip_input(struct mbuf *m)
+@@ -386,8 +387,8 @@ ip_input(struct mbuf *m)
  	if (!TAILQ_FIRST(&in_ifaddrhead)) {
  		goto bad;
  	}
@@ -1962,7 +1960,7 @@ index b6200ce..054da87 100644
  	/*
  	 * If the IP header is not aligned, slurp it up into a new
  	 * mbuf with space for link headers, in the event we forward
-@@ -407,11 +410,15 @@ ip_input(struct mbuf *m)
+@@ -407,11 +408,15 @@ ip_input(struct mbuf *m)
  			return;
  		}
  	}
@@ -1978,7 +1976,7 @@ index b6200ce..054da87 100644
  	hlen = ip->ip_hl << 2;
  	if (hlen < sizeof(struct ip)) {	/* minimum header length */
  		IP_STATINC(IP_STAT_BADHLEN);
-@@ -424,7 +431,6 @@ ip_input(struct mbuf *m)
+@@ -424,7 +429,6 @@ ip_input(struct mbuf *m)
  		}
  		ip = mtod(m, struct ip *);
  	}
@@ -1986,7 +1984,7 @@ index b6200ce..054da87 100644
  	/*
  	 * RFC1122: packets with a multicast source address are
  	 * not allowed.
-@@ -442,7 +448,7 @@ ip_input(struct mbuf *m)
+@@ -442,7 +446,7 @@ ip_input(struct mbuf *m)
  			goto bad;
  		}
  	}
@@ -1995,7 +1993,7 @@ index b6200ce..054da87 100644
  	switch (m->m_pkthdr.csum_flags &
  		((ifp->if_csum_flags_rx & M_CSUM_IPv4) |
  		 M_CSUM_IPv4_BAD)) {
-@@ -471,7 +477,7 @@ ip_input(struct mbuf *m)
+@@ -471,7 +475,7 @@ ip_input(struct mbuf *m)
  
  	/* Retrieve the packet length. */
  	len = ntohs(ip->ip_len);
@@ -2004,7 +2002,7 @@ index b6200ce..054da87 100644
  	/*
  	 * Check for additional length bogosity
  	 */
-@@ -608,8 +614,10 @@ ip_input(struct mbuf *m)
+@@ -608,8 +612,10 @@ ip_input(struct mbuf *m)
  				downmatch++;
  		}
  	}
@@ -2015,7 +2013,7 @@ index b6200ce..054da87 100644
  	if (ifp->if_flags & IFF_BROADCAST) {
  		IFADDR_FOREACH(ifa, ifp) {
  			if (ifa->ifa_addr->sa_family != AF_INET)
-@@ -777,10 +785,12 @@ ours:
+@@ -777,10 +783,12 @@ ours:
  	SOFTNET_UNLOCK();
  	return;
  bad:
@@ -2028,7 +2026,7 @@ index b6200ce..054da87 100644
  	IP_STATINC(IP_STAT_BADSUM);
  	m_freem(m);
  }
-@@ -1035,6 +1045,7 @@ ip_dooptions(struct mbuf *m)
+@@ -1035,6 +1043,7 @@ ip_dooptions(struct mbuf *m)
  			code = ICMP_UNREACH_SRCFAIL;
  			goto bad;
  		}
@@ -2036,7 +2034,7 @@ index b6200ce..054da87 100644
  		ip_forward(m, 1);
  		return true;
  	}
-@@ -1270,6 +1281,7 @@ ip_forward(struct mbuf *m, int srcrt)
+@@ -1270,6 +1279,7 @@ ip_forward(struct mbuf *m, int srcrt)
  		}
  	}
  

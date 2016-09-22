@@ -1,7 +1,7 @@
-From dddc53c9bfb37be7ddcaf3dcaf1fd1fb34b161a6 Mon Sep 17 00:00:00 2001
-From: lab176 <lbaier176@gmail.com>
-Date: Sun, 18 Sep 2016 23:31:18 -0400
-Subject: [PATCH] Fix malloc in cnic_vk_dequeue
+From 7374c6cf286c8286ab05a9ce288cf472d6bc69d0 Mon Sep 17 00:00:00 2001
+From: Robert Gifford <robertgif@gmail.com>
+Date: Thu, 22 Sep 2016 17:55:42 -0400
+Subject: [PATCH] Update full.patch
 
 ---
  sys/dev/pci/if_lmc.c                    |    2 +
@@ -14,23 +14,23 @@ Subject: [PATCH] Fix malloc in cnic_vk_dequeue
  sys/net/Makefile                        |    4 +-
  sys/net/if.c                            |    3 +-
  sys/net/if_bridge.c                     |    3 +-
- sys/net/if_cnic.c                       | 1233 +++++++++++++++++++++++++++++++
+ sys/net/if_cnic.c                       | 1245 +++++++++++++++++++++++++++++++
  sys/net/if_cnic.h                       |   44 ++
  sys/net/if_ethersubr.c                  |    8 +-
  sys/net/if_tap.c                        |    1 +
- sys/net/pktqueue.c                      |   43 +-
+ sys/net/pktqueue.c                      |   42 +-
  sys/net/pktqueue.h                      |    2 +
  sys/net/route.c                         |    1 +
  sys/netinet/ip_icmp.c                   |   12 +-
  sys/netinet/ip_input.c                  |   30 +-
  sys/netinet/ip_output.c                 |   14 +-
  sys/netinet/ip_reass.c                  |    1 +
- sys/netinet/raw_ip.c                    |    2 +
+ sys/netinet/raw_ip.c                    |    1 +
  sys/rump/dev/lib/libpci/pci_user.h      |    2 +-
  sys/rump/librump/rumpkern/rump.c        |    4 +-
  sys/rump/net/lib/libtap/Makefile        |    2 +
  sys/rump/net/lib/libtap/tap_component.c |   45 +-
- 26 files changed, 1451 insertions(+), 54 deletions(-)
+ 26 files changed, 1461 insertions(+), 54 deletions(-)
  create mode 100644 sys/net/if_cnic.c
  create mode 100644 sys/net/if_cnic.h
 
@@ -354,10 +354,10 @@ index a37777f..edfcf80 100644
  		ether_input(ifp, m);
 diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
 new file mode 100644
-index 0000000..c7e287e
+index 0000000..fc5e743
 --- /dev/null
 +++ b/sys/net/if_cnic.c
-@@ -0,0 +1,1233 @@
+@@ -0,0 +1,1245 @@
 +/* All rights go the NetBSD, this is simply a copy of if_tun.c with tun namespace replaced with cnic */
 +
 +#include <sys/cdefs.h>
@@ -389,6 +389,8 @@ index 0000000..c7e287e
 +#include <net/netisr.h>
 +#include <net/route.h>
 +#include <net/if_ether.h>
++
++
 +
 +#ifdef INET
 +#include <netinet/in.h>
@@ -944,7 +946,8 @@ index 0000000..c7e287e
 +			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 1);	
-+			m_free(m0);
++			m_freem(m0);
++			free(test, m0->m_len);
 +			goto out;
 +		}else if(!strcmp(ifp->if_xname, "cnic1")){
 +			//CNICDEBUG("Sending packet from DOM0 to VM2\n");
@@ -953,7 +956,8 @@ index 0000000..c7e287e
 +			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 2);	
-+			m_free(m0);
++			m_freem(m0);
++			free(test, m0->m_len);
 +			goto out;
 +		}else{
 +			//CNICDEBUG("Sending packet from VM%d to DOM0\n", rump_vmid);
@@ -962,7 +966,8 @@ index 0000000..c7e287e
 +			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 0);	
-+			m_free(m0);
++			m_freem(m0);
++			free(test, m0->m_len);
 +			goto out;
 +		}
 +		
@@ -1565,32 +1570,39 @@ index 0000000..c7e287e
 +
 +	//alloc+dequeue mbuf
 +	struct mbuf *m;
-+	MGETHDR(m, M_NOWAIT, MT_DATA);
-+	MCLGET(m, M_DONTWAIT);
-+	void * pktdata = cos_pktq_dequeue(srcvm);
-+	assert(pktdata);
-+	m_copyback(m, 0, 84, pktdata);
-+	
-+	assert(m != NULL);
++	void *pktdata;
++	/* Handle all packets until we are ring_buffer is empty */
++	pktdata = cos_pktq_dequeue(srcvm);
++	while (pktdata) {
++		MGETHDR(m, M_NOWAIT, MT_DATA);
++		m_copyback(m, 0, 84, pktdata);
++		assert(m != NULL);
 +
-+	//set mbuf ifnet to passed in arg from intr.
-+	m->m_pkthdr.rcvif = ifp;
-+	m->m_len = m->m_pkthdr.len = 84;
-+	ifp->if_ipackets++;
-+	bpf_mtap(ifp, m);
-+	ifp->if_flags |= IFF_RUNNING;
-+	ifp->if_flags |= IFF_UP;
++		//set mbuf ifnet to passed in arg from intr.
++		m->m_pkthdr.rcvif = ifp;
++		m->m_len = m->m_pkthdr.len = 84;
++		ifp->if_ipackets++;
++		bpf_mtap(ifp, m);
++		ifp->if_flags |= IFF_RUNNING;
++		ifp->if_flags |= IFF_UP;
++		
++		/* Pass it off to a function that can get the packet into the networking stack */
++		(*ifp->if_input)(ifp, m);
++		free(pktdata, 84);
 +	
-+	/* Pass it off to a function that can get the packet into the networking stack */
-+	(*ifp->if_input)(ifp, m);
-+	free(pktdata, M_DEVBUF);
++		pktdata = cos_pktq_dequeue(srcvm);
++	}
 +	
 +	return 1;
 +}
 +
 +static void
 +cnic_input(struct ifnet *unused, struct mbuf *m)
-+{ if (__predict_false(!pktq_enqueue(ip_pktq, m, 0))) m_freem(m); }
++{ 
++	if (__predict_false(!pktq_enqueue(ip_pktq, m, 0))) {
++		m_freem(m);
++	}
++}
 diff --git a/sys/net/if_cnic.h b/sys/net/if_cnic.h
 new file mode 100644
 index 0000000..3dc220c
@@ -1708,7 +1720,7 @@ index fd979e8..65a5d4d 100644
  
  	tap_start(ifp);
 diff --git a/sys/net/pktqueue.c b/sys/net/pktqueue.c
-index cf3f96d..7844619 100644
+index cf3f96d..1889ff6 100644
 --- a/sys/net/pktqueue.c
 +++ b/sys/net/pktqueue.c
 @@ -48,9 +48,9 @@ __KERNEL_RCSID(0, "$NetBSD: pktqueue.c,v 1.8 2014/07/04 01:50:22 ozaki-r Exp $")
@@ -1771,7 +1783,7 @@ index cf3f96d..7844619 100644
  	KASSERT(kpreempt_disabled());
  
  	if (__predict_false(!pcq_put(pq->pq_queue[cpuid], m))) {
-@@ -231,16 +247,31 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
+@@ -231,16 +247,30 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
   * => Must be called with preemption disabled.
   * => Must ensure there are not concurrent dequeue calls.
   */
@@ -1782,8 +1794,7 @@ index cf3f96d..7844619 100644
 +	void *test = malloc(84, 0, M_NOWAIT);
 +	assert(test);
 +
-+	if(rump_shmem_read(test, srcvm, rump_vmid) == NULL){
-+		printf("cos_pktq_dequeue failed\n");
++	if(rump_shmem_read(test, srcvm, rump_vmid) == NULL) {
 +		return NULL;
 +	}
 +	
@@ -2140,18 +2151,10 @@ index 7f6239f..9c123eb 100644
  	}
  
 diff --git a/sys/netinet/raw_ip.c b/sys/netinet/raw_ip.c
-index 06a5db8..4d4b550 100644
+index 06a5db8..c9b3358 100644
 --- a/sys/netinet/raw_ip.c
 +++ b/sys/netinet/raw_ip.c
-@@ -169,6 +169,7 @@ rip_sbappendaddr(struct inpcb *last, struct ip *ip, const struct sockaddr *sa,
- void
- rip_input(struct mbuf *m, ...)
- {
-+	printf("rip_input\n");
- 	int hlen, proto;
- 	struct ip *ip = mtod(m, struct ip *);
- 	struct inpcb_hdr *inph;
-@@ -311,6 +312,7 @@ rip_ctlinput(int cmd, const struct sockaddr *sa, void *v)
+@@ -311,6 +311,7 @@ rip_ctlinput(int cmd, const struct sockaddr *sa, void *v)
  int
  rip_output(struct mbuf *m, ...)
  {

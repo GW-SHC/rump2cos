@@ -1,8 +1,9 @@
-From 7374c6cf286c8286ab05a9ce288cf472d6bc69d0 Mon Sep 17 00:00:00 2001
-From: Robert Gifford <robertgif@gmail.com>
-Date: Thu, 22 Sep 2016 17:55:42 -0400
-Subject: [PATCH] Update full.patch
+From 8a87d0f912a6709de6c53d853551a0f4b1e7b3a4 Mon Sep 17 00:00:00 2001
+From: lab176 <lbaier176@gmail.com>
+Date: Fri, 23 Sep 2016 14:47:44 -0400
+Subject: [PATCH] Add dequeue till empty for RB
 
+use new dequeue size api call for RB
 ---
  sys/dev/pci/if_lmc.c                    |    2 +
  sys/dev/pci/if_vioif.c                  |   13 +-
@@ -14,12 +15,12 @@ Subject: [PATCH] Update full.patch
  sys/net/Makefile                        |    4 +-
  sys/net/if.c                            |    3 +-
  sys/net/if_bridge.c                     |    3 +-
- sys/net/if_cnic.c                       | 1245 +++++++++++++++++++++++++++++++
+ sys/net/if_cnic.c                       | 1246 +++++++++++++++++++++++++++++++
  sys/net/if_cnic.h                       |   44 ++
  sys/net/if_ethersubr.c                  |    8 +-
  sys/net/if_tap.c                        |    1 +
- sys/net/pktqueue.c                      |   42 +-
- sys/net/pktqueue.h                      |    2 +
+ sys/net/pktqueue.c                      |   49 +-
+ sys/net/pktqueue.h                      |    3 +
  sys/net/route.c                         |    1 +
  sys/netinet/ip_icmp.c                   |   12 +-
  sys/netinet/ip_input.c                  |   30 +-
@@ -30,7 +31,7 @@ Subject: [PATCH] Update full.patch
  sys/rump/librump/rumpkern/rump.c        |    4 +-
  sys/rump/net/lib/libtap/Makefile        |    2 +
  sys/rump/net/lib/libtap/tap_component.c |   45 +-
- 26 files changed, 1461 insertions(+), 54 deletions(-)
+ 26 files changed, 1470 insertions(+), 54 deletions(-)
  create mode 100644 sys/net/if_cnic.c
  create mode 100644 sys/net/if_cnic.h
 
@@ -354,10 +355,10 @@ index a37777f..edfcf80 100644
  		ether_input(ifp, m);
 diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
 new file mode 100644
-index 0000000..fc5e743
+index 0000000..361f1ef
 --- /dev/null
 +++ b/sys/net/if_cnic.c
-@@ -0,0 +1,1245 @@
+@@ -0,0 +1,1246 @@
 +/* All rights go the NetBSD, this is simply a copy of if_tun.c with tun namespace replaced with cnic */
 +
 +#include <sys/cdefs.h>
@@ -946,7 +947,7 @@ index 0000000..fc5e743
 +			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 1);	
-+			m_freem(m0);
++			m_free(m0);
 +			free(test, m0->m_len);
 +			goto out;
 +		}else if(!strcmp(ifp->if_xname, "cnic1")){
@@ -956,7 +957,7 @@ index 0000000..fc5e743
 +			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 2);	
-+			m_freem(m0);
++			m_free(m0);
 +			free(test, m0->m_len);
 +			goto out;
 +		}else{
@@ -966,7 +967,7 @@ index 0000000..fc5e743
 +			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 0);	
-+			m_freem(m0);
++			m_free(m0);
 +			free(test, m0->m_len);
 +			goto out;
 +		}
@@ -1567,20 +1568,21 @@ index 0000000..fc5e743
 +cnic_vk_dequeue(struct cnic_softc* tp, int srcvm)
 +{
 +	struct ifnet * ifp = &tp->cnic_if;
-+
 +	//alloc+dequeue mbuf
 +	struct mbuf *m;
 +	void *pktdata;
++
 +	/* Handle all packets until we are ring_buffer is empty */
-+	pktdata = cos_pktq_dequeue(srcvm);
-+	while (pktdata) {
++ 	int size = cos_pktq_dequeue_size(srcvm);
++	while ((pktdata = cos_pktq_dequeue(srcvm)) != NULL) {
++		assert(size != 0);
 +		MGETHDR(m, M_NOWAIT, MT_DATA);
-+		m_copyback(m, 0, 84, pktdata);
++		m_copyback(m, 0, size, pktdata);
 +		assert(m != NULL);
 +
 +		//set mbuf ifnet to passed in arg from intr.
 +		m->m_pkthdr.rcvif = ifp;
-+		m->m_len = m->m_pkthdr.len = 84;
++		m->m_len = m->m_pkthdr.len = size;
 +		ifp->if_ipackets++;
 +		bpf_mtap(ifp, m);
 +		ifp->if_flags |= IFF_RUNNING;
@@ -1588,9 +1590,9 @@ index 0000000..fc5e743
 +		
 +		/* Pass it off to a function that can get the packet into the networking stack */
 +		(*ifp->if_input)(ifp, m);
-+		free(pktdata, 84);
 +	
-+		pktdata = cos_pktq_dequeue(srcvm);
++		free(pktdata, size);
++		size = cos_pktq_dequeue_size(srcvm);
 +	}
 +	
 +	return 1;
@@ -1600,7 +1602,7 @@ index 0000000..fc5e743
 +cnic_input(struct ifnet *unused, struct mbuf *m)
 +{ 
 +	if (__predict_false(!pktq_enqueue(ip_pktq, m, 0))) {
-+		m_freem(m);
++		m_free(m);
 +	}
 +}
 diff --git a/sys/net/if_cnic.h b/sys/net/if_cnic.h
@@ -1720,7 +1722,7 @@ index fd979e8..65a5d4d 100644
  
  	tap_start(ifp);
 diff --git a/sys/net/pktqueue.c b/sys/net/pktqueue.c
-index cf3f96d..1889ff6 100644
+index cf3f96d..c84d00f 100644
 --- a/sys/net/pktqueue.c
 +++ b/sys/net/pktqueue.c
 @@ -48,9 +48,9 @@ __KERNEL_RCSID(0, "$NetBSD: pktqueue.c,v 1.8 2014/07/04 01:50:22 ozaki-r Exp $")
@@ -1783,15 +1785,22 @@ index cf3f96d..1889ff6 100644
  	KASSERT(kpreempt_disabled());
  
  	if (__predict_false(!pcq_put(pq->pq_queue[cpuid], m))) {
-@@ -231,16 +247,30 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
+@@ -231,16 +247,37 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
   * => Must be called with preemption disabled.
   * => Must ensure there are not concurrent dequeue calls.
   */
 +
++int
++cos_pktq_dequeue_size(int srcvm)
++{
++	int i = rump_shmem_dequeue_size(srcvm, rump_vmid);
++	return i;
++}
++
 +void *
 +cos_pktq_dequeue(int srcvm)
 +{
-+	void *test = malloc(84, 0, M_NOWAIT);
++	void *test = malloc(rump_shmem_dequeue_size(srcvm, rump_vmid), 0, M_NOWAIT);
 +	assert(test);
 +
 +	if(rump_shmem_read(test, srcvm, rump_vmid) == NULL) {
@@ -1817,10 +1826,10 @@ index cf3f96d..1889ff6 100644
  		return NULL;
  	}
 diff --git a/sys/net/pktqueue.h b/sys/net/pktqueue.h
-index c50d8c2..c916014 100644
+index c50d8c2..ca98cdb 100644
 --- a/sys/net/pktqueue.h
 +++ b/sys/net/pktqueue.h
-@@ -48,7 +48,9 @@ pktqueue_t *	pktq_create(size_t, void (*)(void *), void *);
+@@ -48,10 +48,13 @@ pktqueue_t *	pktq_create(size_t, void (*)(void *), void *);
  void		pktq_destroy(pktqueue_t *);
  
  bool		pktq_enqueue(pktqueue_t *, struct mbuf *, const u_int);
@@ -1830,6 +1839,10 @@ index c50d8c2..c916014 100644
  void		pktq_barrier(pktqueue_t *);
  void		pktq_flush(pktqueue_t *);
  int		pktq_set_maxlen(pktqueue_t *, size_t);
++int 		cos_pktq_dequeue_size(int srcvm);
+ 
+ uint32_t	pktq_rps_hash(const struct mbuf *);
+ uint64_t	pktq_get_count(pktqueue_t *, pktq_count_t);
 diff --git a/sys/net/route.c b/sys/net/route.c
 index ecbc88b..09d1438 100644
 --- a/sys/net/route.c

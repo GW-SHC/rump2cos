@@ -122,33 +122,33 @@ int
 main(void)
 {
 
-	int rv, fd, fd2;
-	int i;
-	int debug = 1;
-	char readbuf[1500];
-	
-	/*
-	 * Uncomment for paws file system tests
-	 * paws_tests();
-	 */
+	//int rv, fd, fd2;
+	//int i;
+	//int debug = 1;
+	//char readbuf[1500];
+	//
+	///*
+	// * Uncomment for paws file system tests
+	// * paws_tests();
+	// */
 
-	if(vmid == 0) {
-		printf("----- dom0 -----\n");
-	        fd = cnic_create(0, "111.111.111.0", "255.255.255.0");	
-		assert(fd);
-	        fd = cnic_create(1, "222.222.222.0", "255.255.255.0");	
-		assert(fd);
-	} else if(vmid == 1){
-		printf("----- VM%d -----\n", vmid);
-	        fd  = cnic_create(2, "111.111.111.1", "255.255.255.0");	
-		assert(fd);
-	} else if(vmid == 2){
-		printf("----- VM%d -----\n", vmid);
-	        fd = cnic_create(3, "222.222.222.1", "255.255.255.0");	
-		assert(fd);
-	}
+	//if(vmid == 0) {
+	//	printf("----- dom0 -----\n");
+	//        fd = cnic_create(0, "111.111.111.0", "255.255.255.0");	
+	//	assert(fd);
+	//        fd = cnic_create(1, "222.222.222.0", "255.255.255.0");	
+	//	assert(fd);
+	//} else if(vmid == 1){
+	//	printf("----- VM%d -----\n", vmid);
+	//        fd  = cnic_create(2, "111.111.111.1", "255.255.255.0");	
+	//	assert(fd);
+	//} else if(vmid == 2){
+	//	printf("----- VM%d -----\n", vmid);
+	//        fd = cnic_create(3, "222.222.222.1", "255.255.255.0");	
+	//	assert(fd);
+	//}
 
-	printf("Done\n");
+	//printf("Done\n");
 	printf("%d: Blocking lwp thread indefinitly\n", vmid);
 	bmk_sched_blockprepare();
 	bmk_sched_block();

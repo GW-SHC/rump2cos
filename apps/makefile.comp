@@ -50,6 +50,6 @@ debug : $(APP).bin
 	$(RUN)  qemu -ip -D 1234 $(APP).bin &
 
 clean :
-	rm *.out *.bin
+	rm -f *.out *.bin
 	rm -fr ../temp
-	rm *.o
+	rm -f *.o

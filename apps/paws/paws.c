@@ -148,7 +148,8 @@ main(void)
 		assert(fd);
 	}
 
-	printf("Done\nBlocking lwp thread indefinitly\n");
+	printf("Done\n");
+	printf("%d: Blocking lwp thread indefinitly\n", vmid);
 	bmk_sched_blockprepare();
 	bmk_sched_block();
 	assert(0);

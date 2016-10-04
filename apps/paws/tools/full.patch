@@ -1,7 +1,7 @@
-From 3f7b0ee7fa446d0b5a7eef3cd7f077a31108aa51 Mon Sep 17 00:00:00 2001
+From bc494849fd3b8d321d2eba0e57d8a72e045a2939 Mon Sep 17 00:00:00 2001
 From: Robert Gifford <robertgif@gmail.com>
-Date: Sun, 2 Oct 2016 17:28:16 -0400
-Subject: [PATCH] full patch
+Date: Tue, 4 Oct 2016 11:25:25 -0400
+Subject: [PATCH] full.patch
 
 ---
  sys/dev/pci/if_lmc.c                    |    2 +
@@ -16,14 +16,14 @@ Subject: [PATCH] full patch
  sys/net/Makefile                        |    4 +-
  sys/net/if.c                            |    3 +-
  sys/net/if_bridge.c                     |    3 +-
- sys/net/if_cnic.c                       | 1266 +++++++++++++++++++++++++++++++
+ sys/net/if_cnic.c                       | 1278 +++++++++++++++++++++++++++++++
  sys/net/if_cnic.h                       |   44 ++
  sys/net/if_ethersubr.c                  |    8 +-
  sys/net/if_tap.c                        |    1 +
- sys/net/pktqueue.c                      |   43 +-
- sys/net/pktqueue.h                      |    2 +
+ sys/net/pktqueue.c                      |   47 +-
+ sys/net/pktqueue.h                      |    3 +
  sys/net/route.c                         |    1 +
- sys/netinet/ip_icmp.c                   |   12 +-
+ sys/netinet/ip_icmp.c                   |   14 +-
  sys/netinet/ip_input.c                  |   30 +-
  sys/netinet/ip_output.c                 |   14 +-
  sys/netinet/ip_reass.c                  |    1 +
@@ -33,7 +33,7 @@ Subject: [PATCH] full patch
  sys/rump/librump/rumpkern/rump.c        |    4 +-
  sys/rump/net/lib/libtap/Makefile        |    2 +
  sys/rump/net/lib/libtap/tap_component.c |   45 +-
- 29 files changed, 1489 insertions(+), 54 deletions(-)
+ 29 files changed, 1508 insertions(+), 54 deletions(-)
  create mode 100644 sys/net/if_cnic.c
  create mode 100644 sys/net/if_cnic.h
 
@@ -390,10 +390,10 @@ index a37777f..edfcf80 100644
  		ether_input(ifp, m);
 diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
 new file mode 100644
-index 0000000..7bb182a
+index 0000000..8c765fa
 --- /dev/null
 +++ b/sys/net/if_cnic.c
-@@ -0,0 +1,1266 @@
+@@ -0,0 +1,1278 @@
 +/* All rights go the NetBSD, this is simply a copy of if_tun.c with tun namespace replaced with cnic */
 +
 +#include <sys/cdefs.h>
@@ -982,6 +982,7 @@ index 0000000..7bb182a
 +				goto out;
 +			}
 +			/* Copy data from m0 into test */
++			//printf("VM%d enqueue pktdata: %p, size: %d\n", rump_vmid, test, m0->m_len);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 1);	
 +			/* kern_free */
@@ -998,6 +999,7 @@ index 0000000..7bb182a
 +				goto out;
 +			}
 +			/* Copy data from m0 into test */
++			//printf("VM%d enqueue pktdata: %p, size: %d\n", rump_vmid, test, m0->m_len);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 2);	
 +			/* kern_free */
@@ -1014,6 +1016,7 @@ index 0000000..7bb182a
 +				goto out;
 +			}
 +			/* Copy data from m0 into test */
++			//printf("VM%d enqueue pktdata: %p, size: %d\n", rump_vmid, test, m0->m_len);
 +			m_copydata(m0, 0, m0->m_len, test);
 +			cos_pktq_enqueue(test, m0->m_len, 0);	
 +			/* kern_free */
@@ -1625,27 +1628,36 @@ index 0000000..7bb182a
 +	//alloc+dequeue mbuf
 +	struct mbuf *m;
 +	void *pktdata;
++	int size;
++
 +	/* Handle all packets until we are ring_buffer is empty */
-+	pktdata = cos_pktq_dequeue(srcvm);
++	size = cos_pktq_dequeue_size(srcvm);
++	pktdata = cos_pktq_dequeue(srcvm, size);
++	//printf("VM%d dequeue pktdata: %p, size: %d\n", rump_vmid, pktdata, size);
 +	while (pktdata) {
++
++		/* pktdata is valid, size better not be 0*/
++		assert(size > 0);
++
 +		MGETHDR(m, M_NOWAIT, MT_DATA);
-+		//printf("m: %p", m);
 +		assert(m != NULL);
-+		m_copyback(m, 0, 84, pktdata);
++
++		m_copyback(m, 0, size, pktdata);
 +		free(pktdata, m_devbuf);
 +
-+		//set mbuf ifnet to passed in arg from intr.
++		/* set mbuf ifnet to passed in arg from intr */
 +		m->m_pkthdr.rcvif = ifp;
-+		m->m_len = m->m_pkthdr.len = 84;
++		m->m_len = m->m_pkthdr.len = size;
 +		ifp->if_ipackets++;
-+		//bpf_mtap(ifp, m);
 +		ifp->if_flags |= IFF_RUNNING;
 +		ifp->if_flags |= IFF_UP;
 +		
 +		/* Pass it off to a function that can get the packet into the networking stack */
 +		(*ifp->if_input)(ifp, m);
-+	
-+		pktdata = cos_pktq_dequeue(srcvm);
++
++		size = cos_pktq_dequeue_size(srcvm);
++		pktdata = cos_pktq_dequeue(srcvm, size);
++		//if (pktdata != NULL) printf("VM%d dequeue pktdata: %p, size: %d\n", rump_vmid, pktdata, size);
 +	}
 +
 +	assert (pktdata == NULL);
@@ -1777,7 +1789,7 @@ index fd979e8..65a5d4d 100644
  
  	tap_start(ifp);
 diff --git a/sys/net/pktqueue.c b/sys/net/pktqueue.c
-index cf3f96d..9d3be93 100644
+index cf3f96d..e12eba3 100644
 --- a/sys/net/pktqueue.c
 +++ b/sys/net/pktqueue.c
 @@ -48,9 +48,10 @@ __KERNEL_RCSID(0, "$NetBSD: pktqueue.c,v 1.8 2014/07/04 01:50:22 ozaki-r Exp $")
@@ -1840,15 +1852,25 @@ index cf3f96d..9d3be93 100644
  	KASSERT(kpreempt_disabled());
  
  	if (__predict_false(!pcq_put(pq->pq_queue[cpuid], m))) {
-@@ -231,16 +247,31 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
+@@ -225,22 +241,41 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
+ 	return true;
+ }
+ 
++int
++cos_pktq_dequeue_size(int srcvm)
++{ return rump_shmem_dequeue_size(srcvm, rump_vmid); }
++
+ /*
+  * pktq_dequeue: take a packet from the queue.
+  *
   * => Must be called with preemption disabled.
   * => Must ensure there are not concurrent dequeue calls.
   */
 +
 +void *
-+cos_pktq_dequeue(int srcvm)
++cos_pktq_dequeue(int srcvm, int size)
 +{
-+	void *test = malloc(84, 0, M_NOWAIT);
++	void *test = malloc(size, 0, M_NOWAIT);
 +	if (!test) return NULL;
 +
 +	if(rump_shmem_read(test, srcvm, rump_vmid) == NULL) {
@@ -1875,16 +1897,17 @@ index cf3f96d..9d3be93 100644
  		return NULL;
  	}
 diff --git a/sys/net/pktqueue.h b/sys/net/pktqueue.h
-index c50d8c2..c916014 100644
+index c50d8c2..fe91872 100644
 --- a/sys/net/pktqueue.h
 +++ b/sys/net/pktqueue.h
-@@ -48,7 +48,9 @@ pktqueue_t *	pktq_create(size_t, void (*)(void *), void *);
+@@ -48,7 +48,10 @@ pktqueue_t *	pktq_create(size_t, void (*)(void *), void *);
  void		pktq_destroy(pktqueue_t *);
  
  bool		pktq_enqueue(pktqueue_t *, struct mbuf *, const u_int);
 +bool		cos_pktq_enqueue(void * buff, int size, int to_vmid);
  struct mbuf *	pktq_dequeue(pktqueue_t *);
-+void *		cos_pktq_dequeue(int srcvm);
++void *		cos_pktq_dequeue(int srcvm, int size);
++int 		cos_pktq_dequeue_size(int srcvm);
  void		pktq_barrier(pktqueue_t *);
  void		pktq_flush(pktqueue_t *);
  int		pktq_set_maxlen(pktqueue_t *, size_t);
@@ -1901,18 +1924,24 @@ index ecbc88b..09d1438 100644
  }
  
 diff --git a/sys/netinet/ip_icmp.c b/sys/netinet/ip_icmp.c
-index 3531ce2..20b3da3 100644
+index 3531ce2..4541e2d 100644
 --- a/sys/netinet/ip_icmp.c
 +++ b/sys/netinet/ip_icmp.c
-@@ -217,6 +217,7 @@ void
+@@ -213,10 +213,13 @@ icmp_mtudisc_callback_register(void (*func)(struct in_addr))
+  * Generate an error packet of type error
+  * in response to bad packet ip.
+  */
++#define ICMPPRINTFS
++#define icmpprintfs 1
+ void
  icmp_error(struct mbuf *n, int type, int code, n_long dest,
      int destmtu)
  {
-+	printf("icmp_error\n");
++	//printf("icmp_error\n");
  	struct ip *oip = mtod(n, struct ip *), *nip;
  	unsigned oiplen = oip->ip_hl << 2;
  	struct icmp *icp;
-@@ -381,9 +382,12 @@ struct sockaddr_in icmpmask = {
+@@ -381,9 +384,12 @@ struct sockaddr_in icmpmask = {
  /*
   * Process a received ICMP message.
   */
@@ -1925,7 +1954,7 @@ index 3531ce2..20b3da3 100644
  	int proto;
  	struct icmp *icp;
  	struct ip *ip = mtod(m, struct ip *);
-@@ -400,7 +404,6 @@ icmp_input(struct mbuf *m, ...)
+@@ -400,7 +406,6 @@ icmp_input(struct mbuf *m, ...)
  	hlen = va_arg(ap, int);
  	proto = va_arg(ap, int);
  	va_end(ap);
@@ -1933,7 +1962,7 @@ index 3531ce2..20b3da3 100644
  	/*
  	 * Locate icmp structure in mbuf, and check
  	 * that not corrupted and of at least minimum length.
-@@ -414,6 +417,7 @@ icmp_input(struct mbuf *m, ...)
+@@ -414,6 +419,7 @@ icmp_input(struct mbuf *m, ...)
  		    icmplen);
  	}
  #endif
@@ -1941,7 +1970,7 @@ index 3531ce2..20b3da3 100644
  	if (icmplen < ICMP_MINLEN) {
  		ICMP_STATINC(ICMP_STAT_TOOSHORT);
  		goto freeit;
-@@ -677,6 +681,7 @@ freeit:
+@@ -677,6 +683,7 @@ freeit:
  void
  icmp_reflect(struct mbuf *m)
  {
@@ -1949,7 +1978,7 @@ index 3531ce2..20b3da3 100644
  	struct ip *ip = mtod(m, struct ip *);
  	struct in_ifaddr *ia;
  	struct ifaddr *ifa;
-@@ -907,10 +912,11 @@ icmp_send(struct mbuf *m, struct mbuf *opts)
+@@ -907,10 +914,11 @@ icmp_send(struct mbuf *m, struct mbuf *opts)
  #ifdef ICMPPRINTFS
  	if (icmpprintfs) {
  		char sbuf[INET_ADDRSTRLEN], dbuf[INET_ADDRSTRLEN];

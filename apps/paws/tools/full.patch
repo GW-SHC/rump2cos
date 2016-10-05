@@ -1,6 +1,6 @@
-From bc494849fd3b8d321d2eba0e57d8a72e045a2939 Mon Sep 17 00:00:00 2001
+From b65038d0122e4747fe435d117c99c09848ff3a9e Mon Sep 17 00:00:00 2001
 From: Robert Gifford <robertgif@gmail.com>
-Date: Tue, 4 Oct 2016 11:25:25 -0400
+Date: Tue, 4 Oct 2016 20:37:54 -0400
 Subject: [PATCH] full.patch
 
 ---
@@ -16,15 +16,15 @@ Subject: [PATCH] full.patch
  sys/net/Makefile                        |    4 +-
  sys/net/if.c                            |    3 +-
  sys/net/if_bridge.c                     |    3 +-
- sys/net/if_cnic.c                       | 1278 +++++++++++++++++++++++++++++++
+ sys/net/if_cnic.c                       | 1275 +++++++++++++++++++++++++++++++
  sys/net/if_cnic.h                       |   44 ++
  sys/net/if_ethersubr.c                  |    8 +-
  sys/net/if_tap.c                        |    1 +
  sys/net/pktqueue.c                      |   47 +-
  sys/net/pktqueue.h                      |    3 +
  sys/net/route.c                         |    1 +
- sys/netinet/ip_icmp.c                   |   14 +-
- sys/netinet/ip_input.c                  |   30 +-
+ sys/netinet/ip_icmp.c                   |   12 +-
+ sys/netinet/ip_input.c                  |   46 +-
  sys/netinet/ip_output.c                 |   14 +-
  sys/netinet/ip_reass.c                  |    1 +
  sys/netinet/raw_ip.c                    |    1 +
@@ -33,7 +33,7 @@ Subject: [PATCH] full.patch
  sys/rump/librump/rumpkern/rump.c        |    4 +-
  sys/rump/net/lib/libtap/Makefile        |    2 +
  sys/rump/net/lib/libtap/tap_component.c |   45 +-
- 29 files changed, 1508 insertions(+), 54 deletions(-)
+ 29 files changed, 1514 insertions(+), 59 deletions(-)
  create mode 100644 sys/net/if_cnic.c
  create mode 100644 sys/net/if_cnic.h
 
@@ -390,10 +390,10 @@ index a37777f..edfcf80 100644
  		ether_input(ifp, m);
 diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
 new file mode 100644
-index 0000000..8c765fa
+index 0000000..ff754a0
 --- /dev/null
 +++ b/sys/net/if_cnic.c
-@@ -0,0 +1,1278 @@
+@@ -0,0 +1,1275 @@
 +/* All rights go the NetBSD, this is simply a copy of if_tun.c with tun namespace replaced with cnic */
 +
 +#include <sys/cdefs.h>
@@ -976,15 +976,14 @@ index 0000000..8c765fa
 +		if(!strcmp(ifp->if_xname, "cnic0")){
 +			//printf("\nSending packet from DOM0 to VM1\n");
 +			error = 1;	
-+			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
++			void * test = malloc(m0->m_pkthdr.len, m_devbuf, M_WAITOK);
 +			if (test == NULL) {
 +				printf("output malloc error\n");
 +				goto out;
 +			}
 +			/* Copy data from m0 into test */
-+			//printf("VM%d enqueue pktdata: %p, size: %d\n", rump_vmid, test, m0->m_len);
-+			m_copydata(m0, 0, m0->m_len, test);
-+			cos_pktq_enqueue(test, m0->m_len, 1);	
++			m_copydata(m0, 0, m0->m_pkthdr.len, test);
++			cos_pktq_enqueue(test, m0->m_pkthdr.len, 1);	
 +			/* kern_free */
 +			free(test, m_devbuf);
 +			m_freem(m0);
@@ -993,15 +992,14 @@ index 0000000..8c765fa
 +		}else if(!strcmp(ifp->if_xname, "cnic1")){
 +			//printf("\nSending packet from DOM0 to VM2\n");
 +			error = 1;	
-+			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
++			void * test = malloc(m0->m_pkthdr.len, m_devbuf, M_WAITOK);
 +			if (test == NULL) {
 +				printf("output malloc error\n");
 +				goto out;
 +			}
 +			/* Copy data from m0 into test */
-+			//printf("VM%d enqueue pktdata: %p, size: %d\n", rump_vmid, test, m0->m_len);
-+			m_copydata(m0, 0, m0->m_len, test);
-+			cos_pktq_enqueue(test, m0->m_len, 2);	
++			m_copydata(m0, 0, m0->m_pkthdr.len, test);
++			cos_pktq_enqueue(test, m0->m_pkthdr.len, 2);	
 +			/* kern_free */
 +			free(test, m_devbuf);
 +			m_freem(m0);
@@ -1010,15 +1008,14 @@ index 0000000..8c765fa
 +		}else{
 +			//printf("Sending packet from VM%d to DOM0\n", rump_vmid);
 +			error = 1;	
-+			void * test = malloc(m0->m_len, m_devbuf, M_WAITOK);
++			void * test = malloc(m0->m_pkthdr.len, m_devbuf, M_WAITOK);
 +			if (test == NULL) {
 +				printf("output malloc error\n");
 +				goto out;
 +			}
 +			/* Copy data from m0 into test */
-+			//printf("VM%d enqueue pktdata: %p, size: %d\n", rump_vmid, test, m0->m_len);
-+			m_copydata(m0, 0, m0->m_len, test);
-+			cos_pktq_enqueue(test, m0->m_len, 0);	
++			m_copydata(m0, 0, m0->m_pkthdr.len, test);
++			cos_pktq_enqueue(test, m0->m_pkthdr.len, 0);	
 +			/* kern_free */
 +			free(test, m_devbuf);
 +			m_freem(m0);
@@ -1633,13 +1630,14 @@ index 0000000..8c765fa
 +	/* Handle all packets until we are ring_buffer is empty */
 +	size = cos_pktq_dequeue_size(srcvm);
 +	pktdata = cos_pktq_dequeue(srcvm, size);
-+	//printf("VM%d dequeue pktdata: %p, size: %d\n", rump_vmid, pktdata, size);
 +	while (pktdata) {
 +
 +		/* pktdata is valid, size better not be 0*/
 +		assert(size > 0);
 +
 +		MGETHDR(m, M_NOWAIT, MT_DATA);
++		assert(m != NULL);
++		MCLGET(m, M_DONTWAIT);
 +		assert(m != NULL);
 +
 +		m_copyback(m, 0, size, pktdata);
@@ -1657,7 +1655,6 @@ index 0000000..8c765fa
 +
 +		size = cos_pktq_dequeue_size(srcvm);
 +		pktdata = cos_pktq_dequeue(srcvm, size);
-+		//if (pktdata != NULL) printf("VM%d dequeue pktdata: %p, size: %d\n", rump_vmid, pktdata, size);
 +	}
 +
 +	assert (pktdata == NULL);
@@ -1924,16 +1921,10 @@ index ecbc88b..09d1438 100644
  }
  
 diff --git a/sys/netinet/ip_icmp.c b/sys/netinet/ip_icmp.c
-index 3531ce2..4541e2d 100644
+index 3531ce2..58df697 100644
 --- a/sys/netinet/ip_icmp.c
 +++ b/sys/netinet/ip_icmp.c
-@@ -213,10 +213,13 @@ icmp_mtudisc_callback_register(void (*func)(struct in_addr))
-  * Generate an error packet of type error
-  * in response to bad packet ip.
-  */
-+#define ICMPPRINTFS
-+#define icmpprintfs 1
- void
+@@ -217,6 +217,7 @@ void
  icmp_error(struct mbuf *n, int type, int code, n_long dest,
      int destmtu)
  {
@@ -1941,7 +1932,7 @@ index 3531ce2..4541e2d 100644
  	struct ip *oip = mtod(n, struct ip *), *nip;
  	unsigned oiplen = oip->ip_hl << 2;
  	struct icmp *icp;
-@@ -381,9 +384,12 @@ struct sockaddr_in icmpmask = {
+@@ -381,9 +382,12 @@ struct sockaddr_in icmpmask = {
  /*
   * Process a received ICMP message.
   */
@@ -1954,7 +1945,7 @@ index 3531ce2..4541e2d 100644
  	int proto;
  	struct icmp *icp;
  	struct ip *ip = mtod(m, struct ip *);
-@@ -400,7 +406,6 @@ icmp_input(struct mbuf *m, ...)
+@@ -400,7 +404,6 @@ icmp_input(struct mbuf *m, ...)
  	hlen = va_arg(ap, int);
  	proto = va_arg(ap, int);
  	va_end(ap);
@@ -1962,7 +1953,7 @@ index 3531ce2..4541e2d 100644
  	/*
  	 * Locate icmp structure in mbuf, and check
  	 * that not corrupted and of at least minimum length.
-@@ -414,6 +419,7 @@ icmp_input(struct mbuf *m, ...)
+@@ -414,6 +417,7 @@ icmp_input(struct mbuf *m, ...)
  		    icmplen);
  	}
  #endif
@@ -1970,7 +1961,7 @@ index 3531ce2..4541e2d 100644
  	if (icmplen < ICMP_MINLEN) {
  		ICMP_STATINC(ICMP_STAT_TOOSHORT);
  		goto freeit;
-@@ -677,6 +683,7 @@ freeit:
+@@ -677,6 +681,7 @@ freeit:
  void
  icmp_reflect(struct mbuf *m)
  {
@@ -1978,7 +1969,7 @@ index 3531ce2..4541e2d 100644
  	struct ip *ip = mtod(m, struct ip *);
  	struct in_ifaddr *ia;
  	struct ifaddr *ifa;
-@@ -907,10 +914,11 @@ icmp_send(struct mbuf *m, struct mbuf *opts)
+@@ -907,10 +912,11 @@ icmp_send(struct mbuf *m, struct mbuf *opts)
  #ifdef ICMPPRINTFS
  	if (icmpprintfs) {
  		char sbuf[INET_ADDRSTRLEN], dbuf[INET_ADDRSTRLEN];
@@ -1993,7 +1984,7 @@ index 3531ce2..4541e2d 100644
  }
  
 diff --git a/sys/netinet/ip_input.c b/sys/netinet/ip_input.c
-index b6200ce..a4a5cad 100644
+index b6200ce..3181493 100644
 --- a/sys/netinet/ip_input.c
 +++ b/sys/netinet/ip_input.c
 @@ -135,6 +135,7 @@ __KERNEL_RCSID(0, "$NetBSD: ip_input.c,v 1.322 2015/05/02 20:22:12 joerg Exp $")
@@ -2058,14 +2049,13 @@ index b6200ce..a4a5cad 100644
  	/*
  	 * If the IP header is not aligned, slurp it up into a new
  	 * mbuf with space for link headers, in the event we forward
-@@ -407,11 +408,15 @@ ip_input(struct mbuf *m)
+@@ -407,11 +408,14 @@ ip_input(struct mbuf *m)
  			return;
  		}
  	}
 +	
  	ip = mtod(m, struct ip *);
 +	
-+	//printf("VM%d- ip_dst addr: %s\n",rump_vmid, inet_ntoa(ip->ip_dst));	
  	if (ip->ip_v != IPVERSION) {
  		IP_STATINC(IP_STAT_BADVERS);
  		goto bad;
@@ -2074,7 +2064,7 @@ index b6200ce..a4a5cad 100644
  	hlen = ip->ip_hl << 2;
  	if (hlen < sizeof(struct ip)) {	/* minimum header length */
  		IP_STATINC(IP_STAT_BADHLEN);
-@@ -424,7 +429,6 @@ ip_input(struct mbuf *m)
+@@ -424,7 +428,6 @@ ip_input(struct mbuf *m)
  		}
  		ip = mtod(m, struct ip *);
  	}
@@ -2082,7 +2072,7 @@ index b6200ce..a4a5cad 100644
  	/*
  	 * RFC1122: packets with a multicast source address are
  	 * not allowed.
-@@ -442,7 +446,7 @@ ip_input(struct mbuf *m)
+@@ -442,7 +445,7 @@ ip_input(struct mbuf *m)
  			goto bad;
  		}
  	}
@@ -2091,7 +2081,17 @@ index b6200ce..a4a5cad 100644
  	switch (m->m_pkthdr.csum_flags &
  		((ifp->if_csum_flags_rx & M_CSUM_IPv4) |
  		 M_CSUM_IPv4_BAD)) {
-@@ -471,7 +475,7 @@ ip_input(struct mbuf *m)
+@@ -463,15 +466,16 @@ ip_input(struct mbuf *m)
+ 		if (__predict_true(!(ifp->if_flags & IFF_LOOPBACK) ||
+ 		    ip_do_loopback_cksum)) {
+ 			INET_CSUM_COUNTER_INCR(&ip_swcsum);
+-			if (in_cksum(m, hlen) != 0)
++			if (in_cksum(m, hlen) != 0){
+ 				goto badcsum;
++			}
+ 		}
+ 		break;
+ 	}
  
  	/* Retrieve the packet length. */
  	len = ntohs(ip->ip_len);
@@ -2100,22 +2100,63 @@ index b6200ce..a4a5cad 100644
  	/*
  	 * Check for additional length bogosity
  	 */
-@@ -608,8 +612,10 @@ ip_input(struct mbuf *m)
+@@ -608,8 +612,11 @@ ip_input(struct mbuf *m)
  				downmatch++;
  		}
  	}
+-	if (ia != NULL)
 +	
- 	if (ia != NULL)
++	if (ia != NULL) {
  		goto ours;
++	}
 +	
  	if (ifp->if_flags & IFF_BROADCAST) {
  		IFADDR_FOREACH(ifa, ifp) {
  			if (ifa->ifa_addr->sa_family != AF_INET)
-@@ -777,10 +783,12 @@ ours:
+@@ -624,14 +631,17 @@ ip_input(struct mbuf *m)
+ 			     * either for subnet or net.
+ 			     */
+ 			    ip->ip_dst.s_addr == ia->ia_subnet ||
+-			    ip->ip_dst.s_addr == ia->ia_net)
++			    ip->ip_dst.s_addr == ia->ia_net) {
++				
+ 				goto ours;
+ 			/*
+ 			 * An interface with IP address zero accepts
+ 			 * all packets that arrive on that interface.
+ 			 */
+-			if (in_nullhost(ia->ia_addr.sin_addr))
++			}
++			if (in_nullhost(ia->ia_addr.sin_addr)) {
+ 				goto ours;
++			}
+ 		}
+ 	}
+ 	if (IN_MULTICAST(ip->ip_dst.s_addr)) {
+@@ -683,8 +693,9 @@ ip_input(struct mbuf *m)
+ 		goto ours;
+ 	}
+ 	if (ip->ip_dst.s_addr == INADDR_BROADCAST ||
+-	    in_nullhost(ip->ip_dst))
++	    in_nullhost(ip->ip_dst)) {
+ 		goto ours;
++	}
+ 
+ 	/*
+ 	 * Not for us; forward if possible and desirable.
+@@ -721,6 +732,7 @@ ip_input(struct mbuf *m)
+ 	return;
+ 
+ ours:
++	
+ 	/*
+ 	 * If offset or IP_MF are set, must reassemble.
+ 	 */
+@@ -777,10 +789,12 @@ ours:
  	SOFTNET_UNLOCK();
  	return;
  bad:
-+	printf("VM%d- ip_input bad packet\n", rump_vmid);
++	printf("VM%d ip_input bad packet\n", rump_vmid);
  	m_freem(m);
  	return;
  
@@ -2124,7 +2165,7 @@ index b6200ce..a4a5cad 100644
  	IP_STATINC(IP_STAT_BADSUM);
  	m_freem(m);
  }
-@@ -1035,6 +1043,7 @@ ip_dooptions(struct mbuf *m)
+@@ -1035,6 +1049,7 @@ ip_dooptions(struct mbuf *m)
  			code = ICMP_UNREACH_SRCFAIL;
  			goto bad;
  		}
@@ -2132,7 +2173,7 @@ index b6200ce..a4a5cad 100644
  		ip_forward(m, 1);
  		return true;
  	}
-@@ -1270,6 +1279,7 @@ ip_forward(struct mbuf *m, int srcrt)
+@@ -1270,6 +1285,7 @@ ip_forward(struct mbuf *m, int srcrt)
  		}
  	}
  

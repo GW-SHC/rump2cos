@@ -1,7 +1,7 @@
-From b65038d0122e4747fe435d117c99c09848ff3a9e Mon Sep 17 00:00:00 2001
-From: Robert Gifford <robertgif@gmail.com>
-Date: Tue, 4 Oct 2016 20:37:54 -0400
-Subject: [PATCH] full.patch
+From 4eb465330ef8df7b51db8c6ca558f4e3f948f0de Mon Sep 17 00:00:00 2001
+From: lab176 <lbaier176@gmail.com>
+Date: Sat, 8 Oct 2016 12:58:49 -0400
+Subject: [PATCH] latest patch
 
 ---
  sys/dev/pci/if_lmc.c                    |    2 +
@@ -16,11 +16,11 @@ Subject: [PATCH] full.patch
  sys/net/Makefile                        |    4 +-
  sys/net/if.c                            |    3 +-
  sys/net/if_bridge.c                     |    3 +-
- sys/net/if_cnic.c                       | 1275 +++++++++++++++++++++++++++++++
+ sys/net/if_cnic.c                       | 1273 +++++++++++++++++++++++++++++++
  sys/net/if_cnic.h                       |   44 ++
  sys/net/if_ethersubr.c                  |    8 +-
  sys/net/if_tap.c                        |    1 +
- sys/net/pktqueue.c                      |   47 +-
+ sys/net/pktqueue.c                      |   48 +-
  sys/net/pktqueue.h                      |    3 +
  sys/net/route.c                         |    1 +
  sys/netinet/ip_icmp.c                   |   12 +-
@@ -33,7 +33,7 @@ Subject: [PATCH] full.patch
  sys/rump/librump/rumpkern/rump.c        |    4 +-
  sys/rump/net/lib/libtap/Makefile        |    2 +
  sys/rump/net/lib/libtap/tap_component.c |   45 +-
- 29 files changed, 1514 insertions(+), 59 deletions(-)
+ 29 files changed, 1513 insertions(+), 59 deletions(-)
  create mode 100644 sys/net/if_cnic.c
  create mode 100644 sys/net/if_cnic.h
 
@@ -390,10 +390,10 @@ index a37777f..edfcf80 100644
  		ether_input(ifp, m);
 diff --git a/sys/net/if_cnic.c b/sys/net/if_cnic.c
 new file mode 100644
-index 0000000..ff754a0
+index 0000000..5e0ff52
 --- /dev/null
 +++ b/sys/net/if_cnic.c
-@@ -0,0 +1,1275 @@
+@@ -0,0 +1,1273 @@
 +/* All rights go the NetBSD, this is simply a copy of if_tun.c with tun namespace replaced with cnic */
 +
 +#include <sys/cdefs.h>
@@ -972,7 +972,7 @@ index 0000000..ff754a0
 +		}
 +	/* FALLTHROUGH */
 +	case AF_UNSPEC:
-+		
++			
 +		if(!strcmp(ifp->if_xname, "cnic0")){
 +			//printf("\nSending packet from DOM0 to VM1\n");
 +			error = 1;	
@@ -1007,6 +1007,9 @@ index 0000000..ff754a0
 +			goto out;
 +		}else{
 +			//printf("Sending packet from VM%d to DOM0\n", rump_vmid);
++		        //if(m0->m_pkthdr.len > 45) pktcount--;
++			//printf("VM%d- pktcount: %d\n", rump_vmid, pktcount);
++			
 +			error = 1;	
 +			void * test = malloc(m0->m_pkthdr.len, m_devbuf, M_WAITOK);
 +			if (test == NULL) {
@@ -1626,23 +1629,19 @@ index 0000000..ff754a0
 +	struct mbuf *m;
 +	void *pktdata;
 +	int size;
-+
++	
 +	/* Handle all packets until we are ring_buffer is empty */
 +	size = cos_pktq_dequeue_size(srcvm);
 +	pktdata = cos_pktq_dequeue(srcvm, size);
 +	while (pktdata) {
-+
 +		/* pktdata is valid, size better not be 0*/
 +		assert(size > 0);
-+
++		
 +		MGETHDR(m, M_NOWAIT, MT_DATA);
 +		assert(m != NULL);
-+		MCLGET(m, M_DONTWAIT);
-+		assert(m != NULL);
-+
-+		m_copyback(m, 0, size, pktdata);
-+		free(pktdata, m_devbuf);
-+
++		MEXTADD(m, pktdata, size, m_MBUF, NULL, NULL);
++		assert(m->m_data != NULL);
++		
 +		/* set mbuf ifnet to passed in arg from intr */
 +		m->m_pkthdr.rcvif = ifp;
 +		m->m_len = m->m_pkthdr.len = size;
@@ -1656,7 +1655,6 @@ index 0000000..ff754a0
 +		size = cos_pktq_dequeue_size(srcvm);
 +		pktdata = cos_pktq_dequeue(srcvm, size);
 +	}
-+
 +	assert (pktdata == NULL);
 +	
 +	return 1;
@@ -1786,7 +1784,7 @@ index fd979e8..65a5d4d 100644
  
  	tap_start(ifp);
 diff --git a/sys/net/pktqueue.c b/sys/net/pktqueue.c
-index cf3f96d..e12eba3 100644
+index cf3f96d..72c7483 100644
 --- a/sys/net/pktqueue.c
 +++ b/sys/net/pktqueue.c
 @@ -48,9 +48,10 @@ __KERNEL_RCSID(0, "$NetBSD: pktqueue.c,v 1.8 2014/07/04 01:50:22 ozaki-r Exp $")
@@ -1849,7 +1847,7 @@ index cf3f96d..e12eba3 100644
  	KASSERT(kpreempt_disabled());
  
  	if (__predict_false(!pcq_put(pq->pq_queue[cpuid], m))) {
-@@ -225,22 +241,41 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
+@@ -225,22 +241,42 @@ pktq_enqueue(pktqueue_t *pq, struct mbuf *m, const u_int hash __unused)
  	return true;
  }
  
@@ -1867,6 +1865,7 @@ index cf3f96d..e12eba3 100644
 +void *
 +cos_pktq_dequeue(int srcvm, int size)
 +{
++	if(size > 1200) return NULL;
 +	void *test = malloc(size, 0, M_NOWAIT);
 +	if (!test) return NULL;
 +

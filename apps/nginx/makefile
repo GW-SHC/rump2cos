@@ -23,9 +23,6 @@ backing :
 
 run : bake
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out
-	-sudo ip tuntap add tap0 mode tap
-	-sudo ip addr add 10.0.120.100/24 dev tap0
-	-sudo ip link set dev tap0 up
 	$(RUN) $(RUNCONFS) $(APP).bin
 
 bake :

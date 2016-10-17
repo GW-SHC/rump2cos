@@ -1,6 +1,6 @@
 # Main make file. All others will simply change the variables within this one
 
-CFLAGS += -O3 -g -m32 -c -I../rumprun/platform/cos/rump/include
+CFLAGS += -O3 -m32 -c -I../rumprun/platform/cos/rump/include
 LDFLAGS = -melf_i386 -r -o
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
 CC = $(APPTOOLS)/i486-rumprun-netbsdelf-gcc
@@ -18,8 +18,8 @@ LIBS ?= hw_generic
 DEPS ?=
 
 all : $(APP).bin
-	# $(RUN) qemu -i $(APP).bin
-	#$(RUN) $(RUNCONFS) $(APP).bin $(RUNPOST)
+	$(RUN) qemu -i $(APP).bin
+	$(RUN) $(RUNCONFS) $(APP).bin $(RUNPOST)
 
 $(APP).bin : $(APP).out
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out

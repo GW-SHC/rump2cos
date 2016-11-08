@@ -18,8 +18,8 @@ LIBS ?= hw_generic
 DEPS ?=
 
 all : $(APP).bin
-	$(RUN) qemu -i $(APP).bin
-	$(RUN) $(RUNCONFS) $(APP).bin $(RUNPOST)
+	#$(RUN) qemu -i $(APP).bin
+	#$(RUN) $(RUNCONFS) $(APP).bin $(RUNPOST)
 
 $(APP).bin : $(APP).out
 	$(BAKE) $(LIBS) $(APP).bin $(APP).out

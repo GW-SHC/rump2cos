@@ -181,7 +181,7 @@ paws_ifconfig(void)
 	getifaddrs(&addrs);
 	tmp = addrs;
 
-	while (tmp) 
+	while (tmp)
 	{
 		if (tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_INET)
 		{
@@ -192,23 +192,30 @@ paws_ifconfig(void)
 		tmp = tmp->ifa_next;
 	}
 
-	freeifaddrs(addrs);	
+	freeifaddrs(addrs);
 }
+
+extern int booting;
+extern rump_vmid;
 
 int
 paws_tests(void)
 {
         int rv;
 
+	printf("\nTesting read and writes\n");
         rv = testreadwrite();
 	assert(rv == 0);
 
+	printf("\nTesting mkdir\n");
         rv = testmkdir();
         assert(rv == 0);
 
+	printf("\nTesting mount\n");
         rv = testmount();
         assert(rv == 0);
 
+	printf("\nTesting ifconfig\n");
 	paws_ifconfig();
 
         return 0;

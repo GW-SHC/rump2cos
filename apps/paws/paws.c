@@ -14,14 +14,13 @@
 #include <fcntl.h>
 
 extern int vmid;
-
 int
 main(void)
 {
 	/*
 	 * Uncomment for paws file system tests
-	 * paws_tests();
 	 */
+	//paws_tests();
 
 	printf("%d: Blocking lwp thread indefinitly\n", vmid);
 	bmk_sched_blockprepare();

@@ -13,7 +13,6 @@
 #include <errno.h>
 #include <fcntl.h>
 
-extern int vmid;
 int
 main(void)
 {
@@ -22,7 +21,7 @@ main(void)
 	 */
 	//paws_tests();
 
-	printf("%d: Blocking lwp thread indefinitly\n", vmid);
+	printf("Blocking lwp thread indefinitly\n");
 	bmk_sched_blockprepare();
 	bmk_sched_block();
 	assert(0);

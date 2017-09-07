@@ -9,7 +9,7 @@ subprocess.call(["cp", "../images/data.iso", "."])
 
 # Objdump the new ext2 image into a .o and move it to the right directory
 subprocess.call(["objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386", "data.iso", "backing.o"])
-subprocess.call(["cp", "backing.o", "../../../rumprun/lib/libbmk_rumpuser/cos"])
+subprocess.call(["cp", "backing.o", "../../../rumprun/lib/libbmk_rumpuser/cos/"])
 
 # Compile the src
 os.chdir("../../../rumprun/")

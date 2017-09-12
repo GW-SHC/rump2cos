@@ -12,10 +12,15 @@
 #include <netconfig.h>
 #include <errno.h>
 #include <fcntl.h>
+#include "include/udpserv.h"
+
+struct cos_rumpcalls;
+extern struct cos_rumpcalls crcalls;
 extern int vmid;
 extern int cycs_per_usec;
 #define __rdtscll(val) __asm__ __volatile__("rdtsc" : "=A" (val))
 int rumpns_rtinit(struct ifaddr *, int, int);
+int rk_boot_done = 0;
 
 /* HACK FIXME */
 extern struct ifnet *rumpns_global_ifp;
@@ -113,8 +118,8 @@ cnic_create(int num, char *addr, char *netmask){
 	rv = rump_pub_netconfig_ifup(cnic);
 	if(!rv) printf("ifup: success\n");
 	else printf("ifup: fail %d\n", rv);
-	
-	return fd;	
+
+	return fd;
 }
 
 #define IN_PORT  9998
@@ -217,23 +222,26 @@ main(void)
 
 	//if(vmid == 0) {
 	//	printf("----- dom0 -----\n");
-	//        fd = cnic_create(0, "111.111.111.0", "255.255.255.0");	
+	//        fd = cnic_create(0, "111.111.111.0", "255.255.255.0");
 	//	assert(fd);
-	//        fd = cnic_create(1, "222.222.222.0", "255.255.255.0");	
+	//        fd = cnic_create(1, "222.222.222.0", "255.255.255.0");
 	//	assert(fd);
 	//} else if(vmid == 1){
 	//	printf("----- VM%d -----\n", vmid);
-	//        fd  = cnic_create(2, "111.111.111.1", "255.255.255.0");	
+	//        fd  = cnic_create(2, "111.111.111.1", "255.255.255.0");
 	//	assert(fd);
 	//} else if(vmid == 2){
 	//	printf("----- VM%d -----\n", vmid);
-	//        fd = cnic_create(3, "222.222.222.1", "255.255.255.0");	
+	//        fd = cnic_create(3, "222.222.222.1", "255.255.255.0");
 	//	assert(fd);
 	//}
 
 	//printf("Done\n");
 	if (vmid == 0) {
+		printf("%d: rk boot done\n", vmid);
+		rk_boot_done = 1;
 		printf("%d: Blocking lwp thread indefinitly\n", vmid);
+		yield_udpserv();
 		bmk_sched_blockprepare();
 		bmk_sched_block();
 	} else {

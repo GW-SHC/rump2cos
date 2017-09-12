@@ -1,6 +1,6 @@
 SRC = udpserv.c udpserv_stub.c
 APP = udpserv
-LIBS = paws 
+LIBS = paws
 
 #TODO: MOVE TO makefile.comp and tools too.
 main : backing tools/backing.o all

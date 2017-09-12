@@ -1,6 +1,6 @@
 # Main make file. All others will simply change the variables within this one
 
-CFLAGS += -O3 -m32 -c -I../rumprun/platform/cos/rump/include
+CFLAGS += -O3 -m32 -c -I../../rumprun/platform/cos/rump/include -I../../Composite/src/components/include -I../../Composite/src/kernel/include/shared -I./include/
 LDFLAGS = -melf_i386 -r -o
 APPTOOLS = $(shell pwd)/../../rumprun/app-tools
 CC = $(APPTOOLS)/i486-rumprun-netbsdelf-gcc

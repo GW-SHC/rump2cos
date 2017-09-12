@@ -1,9 +1,5 @@
 #include <stdio.h>
 
-/*
- * RG In attempt to make a rump kernel with absolutly components, this
- * stub file exists to stub off the uneeded functions :D
- */
 
 //int
 //rump_pub_netconfig_auto_ipv6(const char *arg1)
@@ -60,3 +56,10 @@
 //	while(1);
 //	return -1;
 //}
+
+int
+paws_tests(void)
+{
+	printf("UNIMPLEMENTED FOR UDPSERV\n");
+	return -1;
+}

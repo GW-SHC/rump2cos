@@ -1,23 +1,28 @@
 #include "include/paws.h"
-      #include <arpa/inet.h>
-       #include <sys/socket.h>
-       #include <netdb.h>
-       #include <ifaddrs.h>
-       #include <stdio.h>
-       #include <stdlib.h>
-       #include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <ifaddrs.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
 
 void
 printdirs(char dir[])
 {
         DIR *dip = opendir(dir);
         struct dirent *dp;
+	int close_ret;
 
         while((dp = readdir(dip)) != NULL) {
 		 //sleep(1);
 
                 printf("Current directory %s/%s\n", dir, dp->d_name);
         }
+
+	close_ret = closedir(dip);
+	printf("close_ret: %d, %d\n", close_ret, __LINE__);
 }
 
 static int
@@ -40,7 +45,7 @@ testmount(void)
 
         struct ufs_args args;
         struct stat sb;
-        int fd, rv;
+        int fd, rv, close_ret;
         size_t size;
         char reader[200];
         char readerfirst[100];
@@ -66,7 +71,8 @@ testmount(void)
 	printf("fstat info: st_dev %d\n", (int)(sb.st_dev));
 	printf("fstat info: st_size %d\n", (int)(sb.st_size));
 
-        close(fd);
+        close_ret = close(fd);
+	printf("close_ret: %d, %d\n", close_ret, __LINE__);
 
         size = (size_t)sb.st_size;
         args.fspec = "/dev/paws";
@@ -90,10 +96,16 @@ testmount(void)
 
         fd = open("/mnt/file", O_RDWR | O_APPEND | O_CREAT);
         assert(fd > -1);
+	close_ret = close(fd);
+	printf("close_ret: %d, %d\n", close_ret, __LINE__);
         fd = open("/mnt/file1", O_RDWR | O_APPEND | O_CREAT);
         assert(fd > -1);
+	close_ret = close(fd);
+	printf("close_ret: %d, %d\n", close_ret, __LINE__);
         fd = open("/mnt/file2", O_RDWR | O_APPEND | O_CREAT);
         assert(fd > -1);
+	close_ret = close(fd);
+	printf("close_ret: %d, %d\n", close_ret, __LINE__);
 
         printf("\nSecond print: \n");
         printdirs("/mnt");
@@ -113,12 +125,13 @@ testmount(void)
         /* Writing to file 1 */
         fd = open("/mnt/file1", O_RDWR | O_APPEND);
         assert(fd > -1);
-        printf("Writting to file1: ");
+        printf("Writting to file1: \n");
         rv = write(fd, writer, strlen(writer));
         assert(rv > 0);
         rv = write(fd, writer2, strlen(writer2));
         assert(rv > 0);
-        close(fd);
+        close_ret = close(fd);
+	printf("close_ret: %d, %d\n", close_ret, __LINE__);
         printf("done\n");
 
         rv = unmount_paws("/mnt", MNT_FORCE);
@@ -135,7 +148,8 @@ testmount(void)
         rv = read(fd, reader, strlen(writer)+strlen(writer2));
         assert(rv > 0);
 
-        close(fd);
+        close_ret = close(fd);
+	printf("close_ret: %d, %d\n", close_ret, __LINE__);
 
         printf("%s\n", reader);
 
@@ -148,9 +162,10 @@ testreadwrite(void)
         char reader[50];
         char writer[] = "hello hobbes";
         char writer2[] = " back for more\n";
-        int fd, rv;
+        int fd, rv, close_ret;
 
         fd = open("/dev/paws", O_RDWR);
+	if (fd == -1) printf("! errno: %d !\n ", errno);
         assert(fd != -1);
 
         printf("fd for /dev/paws: %d\n", fd);
@@ -166,7 +181,8 @@ testreadwrite(void)
         rv = read(fd, reader, strlen(writer)+strlen(writer2));
         assert(rv > 0);
 
-        close(fd);
+        close_ret = close(fd);
+	printf("close_ret: %d, %d\n", close_ret, __LINE__);
 
         printf("%s\n", reader);
 
@@ -181,7 +197,7 @@ paws_ifconfig(void)
 	getifaddrs(&addrs);
 	tmp = addrs;
 
-	while (tmp) 
+	while (tmp)
 	{
 		if (tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_INET)
 		{
@@ -192,23 +208,30 @@ paws_ifconfig(void)
 		tmp = tmp->ifa_next;
 	}
 
-	freeifaddrs(addrs);	
+	freeifaddrs(addrs);
 }
+
+extern int booting;
+extern rump_vmid;
 
 int
 paws_tests(void)
 {
         int rv;
 
+	printf("\nTesting read and writes\n");
         rv = testreadwrite();
 	assert(rv == 0);
 
+	printf("\nTesting mkdir\n");
         rv = testmkdir();
         assert(rv == 0);
 
+	printf("\nTesting mount\n");
         rv = testmount();
         assert(rv == 0);
 
+	printf("\nTesting ifconfig\n");
 	paws_ifconfig();
 
         return 0;

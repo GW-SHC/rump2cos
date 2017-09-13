@@ -71,7 +71,7 @@ __test_udp_server(void)
 		if (recvfrom(fdr, msg, msg_size, 0, &sa, &len) != msg_size) {
 			perror("read");
 			continue;
-		} 
+		}
 		//printf("Received-msg: seqno:%u time:%llu\n", ((unsigned int *)msg)[0], ((unsigned long long *)msg)[1]);
 		/* Reply to the sender */
 		soutput.sin_addr.s_addr = ((struct sockaddr_in*)&sa)->sin_addr.s_addr;
@@ -97,16 +97,9 @@ __test_udp_server(void)
 int
 main(void)
 {
-	if (vmid == 0) {
-		printf("%d: rk boot done\n", vmid);
-		printf("%d: Blocking lwp thread indefinitly\n", vmid);
-		yield_udpserv();
-		bmk_sched_blockprepare();
-		bmk_sched_block();
-	} else {
-		printf("%d: Starting udp-server [in:%d out:%d]\n", vmid, IN_PORT, OUT_PORT);
-		__test_udp_server();
-	}
+	printf("%d: Starting udp-server [in:%d out:%d]\n", vmid, IN_PORT, OUT_PORT);
+	__test_udp_server();
+
 	assert(0);
 
 	return 0;

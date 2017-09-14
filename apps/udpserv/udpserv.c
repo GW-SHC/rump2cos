@@ -146,6 +146,7 @@ __test_udp_server(void)
 //
 //	msg_size = atoi(argv[3]);
 	msg = malloc(msg_size);
+	printf("msg: %p\n", msg);
 
 	soutput.sin_family      = AF_INET;
 	//soutput.sin_port        = htons(atoi(argv[2]));
@@ -236,7 +237,8 @@ main(void)
 	//	assert(fd);
 	//}
 
-	//printf("Done\n");
+	printf("vmid: %d\n", vmid);
+	assert(vmid == 2);
 	printf("%d: Starting udp-server [in:%d out:%d]\n", vmid, IN_PORT, OUT_PORT);
 	__test_udp_server();
 

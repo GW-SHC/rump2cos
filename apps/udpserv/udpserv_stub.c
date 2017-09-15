@@ -1,6 +1,5 @@
-#include <stdio.h>
-
-
+//#include <stdio.h>
+//
 //int
 //rump_pub_netconfig_auto_ipv6(const char *arg1)
 //{
@@ -57,9 +56,9 @@
 //	return -1;
 //}
 
-int
-paws_tests(void)
-{
-	printf("UNIMPLEMENTED FOR UDPSERV\n");
-	return -1;
-}
+//int
+//paws_tests(void)
+//{
+//	printf("UNIMPLEMENTED FOR UDPSERV\n");
+//	return -1;
+//}

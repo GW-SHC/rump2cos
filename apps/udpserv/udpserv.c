@@ -1,5 +1,6 @@
-#include <netconfig.h>
 #include <assert.h>
+#if 0
+#include <netconfig.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <sys/types.h>
@@ -106,4 +107,17 @@ main(void)
 	assert(0);
 
 	return 0;
+}
+#endif
+
+//extern int udpserv_main(void);
+
+int
+main(void)
+{
+	printf("Calling UDP_SERVER MAIN!\n");
+
+	assert(0);
+	return 0;
+//	return udpserv_main();
 }

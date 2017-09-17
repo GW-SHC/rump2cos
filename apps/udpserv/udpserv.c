@@ -115,9 +115,6 @@ main(void)
 int
 main(void)
 {
-	printf("Calling UDP_SERVER MAIN!\n");
-
 	assert(0);
 	return 0;
-//	return udpserv_main();
 }
